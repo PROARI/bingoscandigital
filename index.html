@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bingo Scan Digital</title>
+    <link rel="icon" type="image/png" href="LOGO.png">
+    <meta name="description" content="Convierte tus cartones de Bingo físicos en interactivos con tu cámara, reconocimiento de voz y marcado inteligente.">
+    <!-- Google Fonts: Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <!-- Limpieza de Caché y Service Workers para Desarrollo -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+                for (let r of regs) r.unregister();
+            });
+        }
+        if (window.caches) {
+            caches.keys().then(keys => {
+                keys.forEach(k => caches.delete(k));
+            });
+        }
+    </script>
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Tesseract.js (Offline compatible CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/tesseract.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER GLOBAL -->
+        <header class="app-header">
+            <div class="header-logo">
+                <img src="LOGO.png" alt="Logo" class="logo-icon">
+                <span>BINGO SCAN <span class="accent-text">DIGITAL</span></span>
+            </div>
+            <div class="header-actions">
+                <button id="btn-global-config" class="btn-icon" title="Configuración">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- CONTENIDO DINÁMICO (VISTAS) -->
+        <main class="app-main">
+            
+            <!-- VISTA 1: INICIO -->
+            <section id="view-main" class="app-view active">
+                <div class="hero-section animate-fade-in">
+                    <div class="logo-large">
+                        <img src="LOGO.png" alt="Bingo Scan Digital Logo">
+                    </div>
+                    <h1>BINGO SCAN <span class="gradient-text">DIGITAL</span></h1>
+                    <p class="subtitle">Digitaliza tus cartones con la cámara, escucha números por voz y juega de forma inteligente.</p>
+                </div>
+
+                <div class="main-actions-grid animate-slide-up">
+                    <button id="btn-start-scan" class="action-card btn-scan-accent">
+                        <div class="card-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
+                        </div>
+                        <div class="card-info">
+                            <h3>ESCANEAR CARTÓN</h3>
+                            <p>Detecta y digitaliza con tu cámara</p>
+                        </div>
+                    </button>
+
+                    <button id="btn-my-cards" class="action-card">
+                        <div class="card-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+                        </div>
+                        <div class="card-info">
+                            <h3>MIS CARTONES</h3>
+                            <p>Administra tus cartones guardados</p>
+                        </div>
+                    </button>
+
+                    <button id="btn-quick-play" class="action-card">
+                        <div class="card-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </div>
+                        <div class="card-info">
+                            <h3>NUEVA PARTIDA</h3>
+                            <p>Jugar con los cartones activos</p>
+                        </div>
+                    </button>
+
+                    <button id="btn-main-config" class="action-card">
+                        <div class="card-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </div>
+                        <div class="card-info">
+                            <h3>CONFIGURACIÓN</h3>
+                            <p>Figuras activas y alertas</p>
+                        </div>
+                    </button>
+                </div>
+            </section>
+
+            <!-- VISTA 2: ESCANEAR CARTÓN -->
+            <section id="view-scan" class="app-view">
+                <div class="view-header">
+                    <button class="btn-back btn-icon-text">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        <span>Atrás</span>
+                    </button>
+                    <h2>Escanear Cartón</h2>
+                </div>
+
+                <div class="scanner-container">
+                    <div class="camera-wrapper">
+                        <!-- Video Feed -->
+                        <video id="scan-video" autoplay playsinline muted></video>
+                        <!-- Grid Overlay -->
+                        <div class="scanner-overlay">
+                            <div class="scanner-frame">
+                                <div class="corner top-left"></div>
+                                <div class="corner top-right"></div>
+                                <div class="corner bottom-left"></div>
+                                <div class="corner bottom-right"></div>
+                                <div class="scanner-line"></div>
+                                <div class="scan-grid-guide">
+                                    <div class="grid-row"><div></div><div></div><div></div><div></div><div></div></div>
+                                    <div class="grid-row"><div></div><div></div><div></div><div></div><div></div></div>
+                                    <div class="grid-row"><div></div><div></div><div></div><div></div><div></div></div>
+                                    <div class="grid-row"><div></div><div></div><div></div><div></div><div></div></div>
+                                    <div class="grid-row"><div></div><div></div><div></div><div></div><div></div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="ocr-loading" class="ocr-status-toast hidden">
+                            <div class="spinner"></div>
+                            <span id="ocr-status-text">Inicializando OCR...</span>
+                        </div>
+                    </div>
+
+                    <div class="scanner-controls">
+                        <button id="btn-gallery-trigger" class="btn-secondary btn-icon-text">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <span>Galería</span>
+                        </button>
+                        <input type="file" id="scan-file-input" accept="image/*" class="hidden">
+
+                        <button id="btn-capture" class="btn-capture" title="Capturar">
+                            <span class="btn-capture-inner"></span>
+                        </button>
+
+                        <button id="btn-manual-create-quick" class="btn-secondary btn-icon-text">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <span>Manual</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 3: VERIFICACIÓN DEL CARTÓN -->
+            <section id="view-verify" class="app-view">
+                <div class="view-header">
+                    <h2>Verificación del Cartón</h2>
+                    <p class="section-desc">Revisa y edita los números detectados para garantizar que sean correctos.</p>
+                </div>
+
+                <div class="verify-container">
+                    <div class="card-name-input-group">
+                        <label for="verify-card-name">Nombre del Cartón</label>
+                        <input type="text" id="verify-card-name" value="Mi Cartón" placeholder="Ej. Cartón de Juan">
+                    </div>
+
+                    <!-- Cuadrícula interactiva de edición -->
+                    <div class="verify-grid-wrapper">
+                        <table class="bingo-board-grid editing">
+                            <thead>
+                                <tr>
+                                    <th>B</th>
+                                    <th>I</th>
+                                    <th>N</th>
+                                    <th>G</th>
+                                    <th>O</th>
+                                </tr>
+                            </thead>
+                            <tbody id="verify-grid-body">
+                                <!-- Filas de inputs generadas dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="verify-actions">
+                        <button id="btn-verify-rescan" class="btn-danger btn-icon-text">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            <span>Re-escanear</span>
+                        </button>
+                        <button id="btn-verify-randomize" class="btn-secondary btn-icon-text">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                            <span>Autocompletar</span>
+                        </button>
+                        <button id="btn-verify-confirm" class="btn-success btn-icon-text">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <span>Confirmar y Guardar</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 4: MIS CARTONES (GALERÍA) -->
+            <section id="view-cards" class="app-view">
+                <div class="view-header">
+                    <button class="btn-back btn-icon-text">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        <span>Inicio</span>
+                    </button>
+                    <h2>Mis Cartones</h2>
+                </div>
+
+                <div class="cards-gallery-container">
+                    <div class="gallery-toolbar">
+                        <button id="btn-gallery-add" class="btn-primary btn-icon-text">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <span>Agregar Cartón</span>
+                        </button>
+                        <button id="btn-gallery-play-all" class="btn-success btn-icon-text">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            <span>Jugar Selección (<span id="selected-cards-count">0</span>)</span>
+                        </button>
+                    </div>
+
+                    <div id="cards-list" class="cards-list-grid">
+                        <!-- Tarjetas de cartones dinámicas -->
+                    </div>
+
+                    <div id="empty-gallery-state" class="empty-state">
+                        <div class="empty-icon">🃏</div>
+                        <h3>No tienes cartones guardados</h3>
+                        <p>Escanea un cartón o créalo manualmente para comenzar a jugar.</p>
+                        <button id="btn-empty-add" class="btn-primary">Escanear primer cartón</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VISTA 5: PANTALLA DE JUEGO -->
+            <section id="view-play" class="app-view">
+                <div class="game-header">
+                    <button id="btn-game-quit" class="btn-icon" title="Salir">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                    
+                    <div class="game-stats">
+                        <div class="stat-box">
+                            <span class="stat-label">ÚLTIMO NÚMERO</span>
+                            <span id="game-last-number" class="stat-val">-</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">CANTADOS</span>
+                            <span id="game-drawn-count" class="stat-val">0</span>
+                        </div>
+                    </div>
+
+                    <button id="btn-game-voice" class="btn-voice-toggle" title="Escuchar Números">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mic-icon"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                        <div class="pulse-wave"></div>
+                    </button>
+                </div>
+
+                <div class="voice-feedback hidden" id="voice-transcript-panel">
+                    <span class="voice-indicator">🎙️ Escuchando:</span>
+                    <span id="voice-transcript-text" class="transcript-placeholder">Di un número...</span>
+                </div>
+
+                <!-- SELECTOR DE TABS DE CARTONES ACTIVOS (Si hay más de 1) -->
+                <div class="active-cards-tabs-container" id="game-cards-tabs">
+                    <!-- Tabs dinámicos -->
+                </div>
+
+                <!-- CONTENEDOR DEL TABLERO DE JUEGO PRINCIPAL -->
+                <div class="game-board-container">
+                    <div class="board-card-wrapper animate-scale-up">
+                        <div class="board-card-title-bar">
+                            <span id="game-active-card-name">Cartón</span>
+                            <span class="card-id-pill" id="game-active-card-id">#1</span>
+                        </div>
+                        <table class="bingo-board-grid gameplay">
+                            <thead>
+                                <tr>
+                                    <th>B</th>
+                                    <th>I</th>
+                                    <th>N</th>
+                                    <th>G</th>
+                                    <th>O</th>
+                                </tr>
+                            </thead>
+                            <tbody id="game-board-body">
+                                <!-- Celdas de juego dinámicas -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- REGISTRO DE ENTRADA MANUAL -->
+                <div class="manual-input-box">
+                    <input type="number" id="game-num-input" placeholder="Marcar número" min="1" max="75">
+                    <button id="btn-game-mark" class="btn-primary">Marcar</button>
+                </div>
+
+                <!-- HISTORIAL DE NÚMEROS SALIDOS -->
+                <div class="drawn-history-section">
+                    <h4>Historial de Números Cantados</h4>
+                    <div id="drawn-history-list" class="drawn-history-list">
+                        <!-- Chips de números cantados -->
+                    </div>
+                </div>
+
+                <!-- ACCIONES DE JUEGO -->
+                <div class="game-actions-footer">
+                    <button id="btn-game-undo" class="btn-secondary btn-icon-text">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+                        <span>Deshacer</span>
+                    </button>
+                    <button id="btn-game-restart" class="btn-danger btn-icon-text">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                        <span>Reiniciar Partida</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- VISTA 6: CONFIGURACIÓN -->
+            <section id="view-config" class="app-view">
+                <div class="view-header">
+                    <button class="btn-back btn-icon-text">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        <span>Atrás</span>
+                    </button>
+                    <h2>Configuración</h2>
+                </div>
+
+                <div class="config-container">
+                    <div class="config-section">
+                        <h3>Figuras Ganadoras Activas</h3>
+                        <p class="section-desc">Selecciona qué patrones activarán la alerta de ¡Figura Completada!</p>
+                        
+                        <div class="figures-config-grid">
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-line-h" checked>
+                                <span class="tile-label">Línea Horizontal</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-line-v" checked>
+                                <span class="tile-label">Línea Vertical</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-diagonal" checked>
+                                <span class="tile-label">Diagonales</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-x">
+                                <span class="tile-label">Figura X</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-corners">
+                                <span class="tile-label">Cuatro Esquinas</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-cross">
+                                <span class="tile-label">Cruz</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-t">
+                                <span class="tile-label">Figura T</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-l">
+                                <span class="tile-label">Figura L</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-frame">
+                                <span class="tile-label">Marco Exterior</span>
+                            </label>
+                            <label class="check-tile">
+                                <input type="checkbox" id="fig-full" checked>
+                                <span class="tile-label">Cartón Lleno (BINGO)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="config-section">
+                        <h3>Preferencias de la Aplicación</h3>
+                        <div class="pref-list">
+                            <div class="pref-item">
+                                <div class="pref-info">
+                                    <h4>Efectos de Sonido</h4>
+                                    <p>Generar tonos sintetizados de marcado y victoria.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="pref-sound" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="pref-item">
+                                <div class="pref-info">
+                                    <h4>Vibración Háptica</h4>
+                                    <p>Hacer vibrar el teléfono al marcar o ganar.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="pref-vibrate" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="pref-item">
+                                <div class="pref-info">
+                                    <h4>Reconocimiento de Voz Continuo</h4>
+                                    <p>Mantener el micrófono escuchando constantemente en el juego.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="pref-voice-continuous" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="config-section about-box">
+                        <p><strong>Bingo Scan Digital v1.0.0 (MVP)</strong></p>
+                        <p>Desarrollado para procesamiento OCR y análisis de voz en tiempo real sin conexión.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL DE SELECCIÓN DE AGREGAR CARTÓN -->
+    <div id="add-card-modal" class="modal-overlay hidden">
+        <div class="modal-card animate-scale-up">
+            <h3>Agregar Nuevo Cartón</h3>
+            <p>Elige el método para registrar tu cartón de bingo.</p>
+            <div class="modal-buttons">
+                <button id="modal-btn-scan" class="btn-primary btn-icon-text">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    <span>Cámara / Escanear</span>
+                </button>
+                <button id="modal-btn-gallery" class="btn-secondary btn-icon-text">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <span>Subir desde Galería</span>
+                </button>
+                <button id="modal-btn-manual" class="btn-secondary btn-icon-text">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span>Crear Manualmente</span>
+                </button>
+                <button id="modal-btn-close" class="btn-danger-outline">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL / ALERTA DE VICTORIA (BINGO / LÍNEA) -->
+    <div id="win-overlay" class="win-overlay hidden">
+        <canvas id="confetti-canvas"></canvas>
+        <div class="win-card animate-bounce">
+            <div class="win-trophy">🏆</div>
+            <h2 id="win-title">¡FIGURA COMPLETADA!</h2>
+            <h3 id="win-figure-name">LÍNEA HORIZONTAL</h3>
+            <p id="win-card-info">En el Cartón de Juan</p>
+            <button id="btn-win-close" class="btn-success">¡Genial!</button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- SCRIPTS -->
+    <script src="db.js"></script>
+    <script src="audio.js"></script>
+    <script src="ocr.js"></script>
+    <script src="voice.js"></script>
+    <script src="game.js"></script>
+    <script src="app_v2.js"></script>
+</body>
+</html>

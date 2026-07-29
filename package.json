@@ -1,0 +1,16 @@
+{
+  "name": "bingo-scan-digital",
+  "version": "1.0.0",
+  "description": "Progressive Web App para digitalizar y jugar cartones de Bingo físicos.",
+  "scripts": {
+    "dev": "npx http-server -p 8080"
+  },
+  "keywords": [
+    "bingo",
+    "ocr",
+    "voice-recognition",
+    "pwa"
+  ],
+  "author": "Antigravity",
+  "license": "ISC"
+}
