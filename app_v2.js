@@ -1,6 +1,55 @@
 /* BINGO SCAN DIGITAL - CONTROLADOR PRINCIPAL Y ENRUTADOR */
 
 document.addEventListener("DOMContentLoaded", async () => {
+    // 0. DETECTOR DE PWA STANDALONE (GATEKEEPER)
+    function isStandalone() {
+        const urlParams = new URLSearchParams(window.location.search);
+        // Permitir bypass en desarrollo/sandbox si la URL tiene dev=true o v (cache buster)
+        if (urlParams.get('dev') === 'true' || urlParams.get('v')) {
+            return true;
+        }
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        const installBtn = document.getElementById('btn-pwa-install');
+        if (installBtn) {
+            installBtn.style.display = 'inline-flex';
+        }
+    });
+
+    // Pestañas de instrucciones manuales
+    document.querySelectorAll('.inst-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.inst-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.inst-step').forEach(s => s.classList.remove('active'));
+
+            tab.classList.add('active');
+            const targetId = tab.dataset.target;
+            const targetStep = document.getElementById(targetId);
+            if (targetStep) targetStep.classList.add('active');
+        });
+    });
+
+    // Botón de instalación
+    const installBtn = document.getElementById('btn-pwa-install');
+    if (installBtn) {
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`PWA install choice: ${outcome}`);
+                deferredPrompt = null;
+                installBtn.style.display = 'none';
+            } else {
+                showToast("Por favor, sigue las instrucciones manuales de abajo para agregar la app.", "warning");
+            }
+        });
+    }
+
     // 1. INICIALIZAR SERVICIOS
     try {
         await window.dbService.init();
@@ -31,15 +80,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Cargar configuraciones guardadas
     await loadSettingsFromDb();
 
-    // Registrar Service Worker para PWA
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then(() => console.log("Service Worker registrado con éxito."))
-            .catch(err => console.warn("Fallo de Service Worker:", err));
-    }
-
     // 2. REFERENCIAS DOM DE VISTAS
     const views = {
+        'install-gate': document.getElementById('view-install-gate'),
         main: document.getElementById('view-main'),
         scan: document.getElementById('view-scan'),
         verify: document.getElementById('view-verify'),
@@ -50,13 +93,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 3. ENRUTADOR DE VISTAS
     function showView(viewId) {
+        // Redirigir al gatekeeper si no está en modo standalone/instalado
+        if (!isStandalone()) {
+            viewId = 'install-gate';
+            document.getElementById('app-header-global').style.display = 'none';
+        } else {
+            document.getElementById('app-header-global').style.display = 'flex';
+        }
+
         // Detener cámara si salimos de la vista de escaneo
-        if (views.scan.classList.contains('active') && viewId !== 'scan') {
+        if (views.scan && views.scan.classList.contains('active') && viewId !== 'scan') {
             window.ocrService.stopCamera();
         }
 
         // Desactivar todas las vistas
-        Object.values(views).forEach(v => v.classList.remove('active'));
+        Object.values(views).forEach(v => {
+            if (v) v.classList.remove('active');
+        });
 
         // Activar la vista seleccionada
         if (views[viewId]) {
@@ -70,6 +123,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else if (viewId === 'config') {
             renderConfigScreen();
         }
+    }
+
+    // Comprobar estado de instalación inicial
+    showView('main');
+
+    // Registrar Service Worker para PWA
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then(() => console.log("Service Worker registrado con éxito."))
+            .catch(err => console.warn("Fallo de Service Worker:", err));
     }
 
     // Enlazar botones con clase 'btn-back' para volver a Inicio

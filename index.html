@@ -34,7 +34,7 @@
 <body>
     <div class="app-container">
         <!-- HEADER GLOBAL -->
-        <header class="app-header">
+        <header class="app-header" id="app-header-global">
             <div class="header-logo">
                 <img src="LOGO.png" alt="Logo" class="logo-icon">
                 <span>BINGO SCAN <span class="accent-text">DIGITAL</span></span>
@@ -48,6 +48,42 @@
 
         <!-- CONTENIDO DINÁMICO (VISTAS) -->
         <main class="app-main">
+            
+            <!-- VISTA PWA: DETECTOR DE INSTALACIÓN (GATEKEEPER) -->
+            <section id="view-install-gate" class="app-view">
+                <div class="install-gate-container animate-fade-in">
+                    <div class="logo-install">
+                        <img src="LOGO.png" alt="Bingo Scan Digital Logo">
+                    </div>
+                    <h2>INSTALACIÓN REQUERIDA</h2>
+                    <p class="install-desc">
+                        Para utilizar <strong>BINGO SCAN DIGITAL</strong> en tu teléfono, debes instalar la aplicación en tu pantalla de inicio.
+                    </p>
+                    
+                    <button id="btn-pwa-install" class="btn-primary btn-install-large" style="display: none;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span>INSTALAR APLICACIÓN</span>
+                    </button>
+
+                    <div class="manual-install-instructions">
+                        <h3>¿Cómo instalar manualmente?</h3>
+                        <div class="instruction-tabs">
+                            <div class="inst-tab active" data-target="inst-android">Android (Chrome)</div>
+                            <div class="inst-tab" data-target="inst-ios">iOS (Safari)</div>
+                        </div>
+                        <div class="instruction-content">
+                            <div id="inst-android" class="inst-step active">
+                                <p>1. Presiona el botón de tres puntos de tu navegador (esquina superior derecha).</p>
+                                <p>2. Selecciona <strong>Instalar aplicación</strong> o <strong>Agregar a la pantalla principal</strong>.</p>
+                            </div>
+                            <div id="inst-ios" class="inst-step">
+                                <p>1. Presiona el botón de <strong>Compartir</strong> en la barra inferior del navegador.</p>
+                                <p>2. Selecciona la opción <strong>Añadir a pantalla de inicio</strong>.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
             
             <!-- VISTA 1: INICIO -->
             <section id="view-main" class="app-view active">

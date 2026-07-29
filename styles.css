@@ -1413,3 +1413,123 @@ body {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-8px); }
 }
+
+/* Gatekeeper de Instalación PWA */
+#view-install-gate {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 30px 20px;
+    height: 100%;
+}
+
+#view-install-gate.active {
+    display: flex;
+}
+
+.install-gate-container {
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    margin: auto 0;
+}
+
+.logo-install {
+    width: 200px;
+    margin-bottom: 5px;
+}
+
+.logo-install img {
+    width: 100%;
+    height: auto;
+    filter: drop-shadow(0 0 15px rgba(6, 182, 212, 0.4));
+    animation: float 4s ease-in-out infinite;
+}
+
+.install-desc {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.btn-install-large {
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    border-radius: var(--border-radius-md);
+    box-shadow: 0 4px 20px var(--primary-cyan-glow);
+    background: linear-gradient(135deg, var(--primary-cyan), var(--accent-purple));
+    border: 1px solid var(--primary-cyan);
+    color: var(--bg-dark);
+}
+
+.btn-install-large:active {
+    transform: scale(0.98);
+}
+
+.manual-install-instructions {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-md);
+    padding: 16px;
+    width: 100%;
+    margin-top: 15px;
+    text-align: left;
+}
+
+.manual-install-instructions h3 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--primary-cyan);
+}
+
+.instruction-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--glass-border);
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    gap: 12px;
+}
+
+.inst-tab {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding-bottom: 4px;
+    position: relative;
+}
+
+.inst-tab.active {
+    color: var(--text-main);
+}
+
+.inst-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--primary-cyan);
+}
+
+.inst-step {
+    display: none;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+
+.inst-step.active {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}

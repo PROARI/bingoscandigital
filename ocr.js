@@ -70,8 +70,14 @@ class OcrService {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
 
-        const videoWidth = this.videoElement.videoWidth;
-        const videoHeight = this.videoElement.videoHeight;
+        let videoWidth = this.videoElement.videoWidth;
+        let videoHeight = this.videoElement.videoHeight;
+
+        // Fallback si la cámara no reporta tamaño nativo todavía
+        if (!videoWidth || !videoHeight) {
+            videoWidth = this.videoElement.clientWidth || 640;
+            videoHeight = this.videoElement.clientHeight || 480;
+        }
 
         // La guía de escaneo es un cuadrado del 80% del menor lado en el centro
         const boxSize = Math.min(videoWidth, videoHeight) * 0.8;
@@ -115,6 +121,9 @@ class OcrService {
      * Inicializa el Worker de Tesseract.js (soporta offline si está cacheado).
      */
     async initTesseract(statusCallback) {
+        if (typeof Tesseract === 'undefined') {
+            throw new Error("El motor OCR (Tesseract.js) no se ha cargado. Verifica tu conexión a internet o crea el cartón manualmente.");
+        }
         if (this.tesseractWorker) return;
         if (this.isWorkerInitializing) return;
 
@@ -204,19 +213,25 @@ class OcrService {
         const colG = []; // 46-60
         const colO = []; // 61-75
 
+        const seenValues = new Set();
         detectedNumbers.forEach(item => {
             if (item.val === "LIBRE") {
                 colN.push(item);
-            } else if (item.val >= 1 && item.val <= 15) {
-                colB.push(item);
-            } else if (item.val >= 16 && item.val <= 30) {
-                colI.push(item);
-            } else if (item.val >= 31 && item.val <= 45) {
-                colN.push(item);
-            } else if (item.val >= 46 && item.val <= 60) {
-                colG.push(item);
-            } else if (item.val >= 61 && item.val <= 75) {
-                colO.push(item);
+            } else {
+                if (seenValues.has(item.val)) return; // Evitar números duplicados en el cartón
+                seenValues.add(item.val);
+
+                if (item.val >= 1 && item.val <= 15) {
+                    colB.push(item);
+                } else if (item.val >= 16 && item.val <= 30) {
+                    colI.push(item);
+                } else if (item.val >= 31 && item.val <= 45) {
+                    colN.push(item);
+                } else if (item.val >= 46 && item.val <= 60) {
+                    colG.push(item);
+                } else if (item.val >= 61 && item.val <= 75) {
+                    colO.push(item);
+                }
             }
         });
 

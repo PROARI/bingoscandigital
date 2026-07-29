@@ -294,7 +294,7 @@ class BingoGameEngine {
             cells.push({ row: i, col: i });
             if (i !== 2) cells.push({ row: i, col: 4 - i });
         }
-        return { won, cells };
+        return { won, cells: won ? cells : [] };
     }
 
     _checkCorners(m) {
@@ -321,10 +321,13 @@ class BingoGameEngine {
 
     _checkT(m) {
         const cells = [];
-        // Fila superior (row 0) + columna central (col 2)
-        for (let i = 0; i < 5; i++) {
-            cells.push({ row: 0, col: i });
-            if (i !== 0) cells.push({ row: i, col: 2 });
+        // Fila 0 (columnas 0 a 4)
+        for (let c = 0; c < 5; c++) {
+            cells.push({ row: 0, col: c });
+        }
+        // Columna 2 (filas 1 a 4)
+        for (let r = 1; r < 5; r++) {
+            cells.push({ row: r, col: 2 });
         }
         const won = cells.every(c => m[c.row][c.col]);
         return { won, cells: won ? cells : [] };
@@ -332,10 +335,13 @@ class BingoGameEngine {
 
     _checkL(m) {
         const cells = [];
-        // Columna izquierda (col 0) + fila inferior (row 4)
-        for (let i = 0; i < 5; i++) {
-            cells.push({ row: i, col: 0 });
-            if (i !== 4) cells.push({ row: 4, col: i });
+        // Columna 0 (filas 0 a 4)
+        for (let r = 0; r < 5; r++) {
+            cells.push({ row: r, col: 0 });
+        }
+        // Fila 4 (columnas 1 a 4)
+        for (let c = 1; c < 5; c++) {
+            cells.push({ row: 4, col: c });
         }
         const won = cells.every(c => m[c.row][c.col]);
         return { won, cells: won ? cells : [] };
