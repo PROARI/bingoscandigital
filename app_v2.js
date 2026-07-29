@@ -233,9 +233,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         addCardModal.classList.add('hidden');
         showView('scan');
         const video = document.getElementById('scan-video');
-        const success = await window.ocrService.startCamera(video);
-        if (!success) {
-            showToast("No se pudo acceder a la cámara. Prueba subir desde galería.", "danger");
+        const simulatorCanvas = document.getElementById('scan-simulator-canvas');
+        const success = await window.ocrService.startCamera(video, simulatorCanvas);
+        if (success && window.ocrService.isSimulated) {
+            showToast("Usando cámara de prueba simulada.", "warning");
+        } else if (!success) {
+            showToast("No se pudo acceder a la cámara ni al simulador.", "danger");
             showView('main');
         }
     });
