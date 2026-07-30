@@ -108,18 +108,30 @@ class OcrService {
         }
 
         const track = this.stream.getVideoTracks()[0];
-        if (track && typeof track.getCapabilities === 'function') {
+        if (!track) {
+            torchBtn.classList.add('hidden');
+            return;
+        }
+
+        // Si getCapabilities está soportado, lo usamos para validar.
+        // Si no lo está (ej. iOS Safari), mostramos el botón por defecto para permitir el intento.
+        if (typeof track.getCapabilities === 'function') {
             try {
                 const capabilities = track.getCapabilities();
-                if (capabilities.torch) {
+                if (capabilities && capabilities.torch) {
                     torchBtn.classList.remove('hidden');
+                    return;
+                } else {
+                    torchBtn.classList.add('hidden');
                     return;
                 }
             } catch (e) {
                 console.warn("Error al leer capacidades de cámara para la linterna:", e);
             }
         }
-        torchBtn.classList.add('hidden');
+
+        // Fallback para navegadores que no exponen getCapabilities pero podrían soportar linterna
+        torchBtn.classList.remove('hidden');
     }
 
     /**
@@ -130,10 +142,17 @@ class OcrService {
         const track = this.stream.getVideoTracks()[0];
         if (!track) return false;
 
-        const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
-        if (!capabilities.torch) {
-            console.warn("Linterna no soportada en esta cámara.");
-            return false;
+        // Si getCapabilities está soportado y explícitamente dice que no tiene linterna, cancelamos.
+        if (typeof track.getCapabilities === 'function') {
+            try {
+                const capabilities = track.getCapabilities();
+                if (capabilities && capabilities.torch === false) {
+                    console.warn("Linterna no soportada en esta cámara.");
+                    return false;
+                }
+            } catch (e) {
+                console.warn("Error leyendo capabilities al alternar linterna:", e);
+            }
         }
 
         const targetState = !this.isTorchActive;

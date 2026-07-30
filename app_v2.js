@@ -477,11 +477,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById('btn-start-scan').click();
     });
 
-    document.getElementById('btn-verify-randomize').addEventListener('click', () => {
-        window.audioService.playTap();
-        const randGrid = window.ocrService.generateRandomCardGrid();
-        openVerificationScreen(verifyCardName.value, randGrid);
-    });
+
 
     document.getElementById('btn-verify-confirm').addEventListener('click', async () => {
         // Validar todos los campos
