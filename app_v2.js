@@ -104,6 +104,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Detener cámara si salimos de la vista de escaneo
         if (views.scan && views.scan.classList.contains('active') && viewId !== 'scan') {
             window.ocrService.stopCamera();
+            window.ocrService.stopScanLoop();
         }
 
         // Desactivar todas las vistas
@@ -234,9 +235,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         const video = document.getElementById('scan-video');
         const simulatorCanvas = document.getElementById('scan-simulator-canvas');
         const success = await window.ocrService.startCamera(video, simulatorCanvas);
-        if (success && window.ocrService.isSimulated) {
-            showToast("Usando cámara de prueba simulada.", "warning");
-        } else if (!success) {
+        if (success) {
+            if (window.ocrService.isSimulated) {
+                showToast("Usando cámara de prueba simulada.", "warning");
+            }
+            
+            // Iniciar bucle de escaneo continuo en tiempo real con realidad aumentada
+            window.ocrService.startScanLoop((grid) => {
+                window.audioService.playTap();
+                window.ocrService.stopCamera();
+                hideOcrLoader();
+                showToast("Cartón escaneado y clonado con éxito.", "success");
+                openVerificationScreen(`Escaneado ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, grid);
+            });
+        } else {
             showToast("No se pudo acceder a la cámara ni al simulador.", "danger");
             showView('main');
         }
@@ -270,6 +282,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Botón de captura de cámara
     document.getElementById('btn-capture').addEventListener('click', async () => {
         window.audioService.playTap();
+        window.ocrService.stopScanLoop();
         const canvas = window.ocrService.captureAndProcess();
         if (!canvas) {
             showToast("La cámara aún no está lista.", "warning");

@@ -8,6 +8,12 @@ class OcrService {
         this.tesseractWorker = null;
         this.isWorkerInitializing = false;
         this.isSimulated = false;
+        
+        // Propiedades para escaneo en tiempo real y overlays
+        this.isScanningLoopRunning = false;
+        this.isOcrProcessing = false;
+        this.detectedWordsCache = [];
+        this.onCardAutoCapturedCallback = null;
     }
 
     /**
@@ -76,6 +82,249 @@ class OcrService {
         if (this.videoElement) {
             this.videoElement.srcObject = null;
         }
+    }
+
+    /**
+     * Inicia el bucle de escaneo continuo en tiempo real con realidad aumentada.
+     */
+    startScanLoop(onAutoCaptureCallback) {
+        this.isScanningLoopRunning = true;
+        this.isOcrProcessing = false;
+        this.detectedWordsCache = [];
+        this.onCardAutoCapturedCallback = onAutoCaptureCallback;
+
+        // Limpiar el canvas de overlays
+        const canvas = document.getElementById('scan-overlay-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Iniciar el bucle de animación
+        this.tickScanLoop();
+
+        if (this.isSimulated) {
+            // Flujo simulado: simula detecciones y autocaptura tras 1.8 segundos
+            setTimeout(() => {
+                if (!this.isScanningLoopRunning) return;
+                this.detectedWordsCache = [
+                    { text: "7", bbox: { x0: 30, y0: 80, x1: 50, y1: 100 } },
+                    { text: "18", bbox: { x0: 90, y0: 80, x1: 110, y1: 100 } },
+                    { text: "33", bbox: { x0: 150, y0: 80, x1: 170, y1: 100 } },
+                    { text: "48", bbox: { x0: 210, y0: 80, x1: 230, y1: 100 } },
+                    { text: "64", bbox: { x0: 270, y0: 80, x1: 290, y1: 100 } },
+                    
+                    { text: "12", bbox: { x0: 30, y0: 130, x1: 50, y1: 150 } },
+                    { text: "25", bbox: { x0: 90, y0: 130, x1: 110, y1: 150 } },
+                    { text: "37", bbox: { x0: 150, y0: 130, x1: 170, y1: 150 } },
+                    { text: "52", bbox: { x0: 210, y0: 130, x1: 230, y1: 150 } },
+                    { text: "70", bbox: { x0: 270, y0: 130, x1: 290, y1: 150 } },
+
+                    { text: "4", bbox: { x0: 30, y0: 180, x1: 50, y1: 200 } },
+                    { text: "20", bbox: { x0: 90, y0: 180, x1: 110, y1: 200 } },
+                    { text: "LIBRE", bbox: { x0: 150, y0: 180, x1: 170, y1: 200 } },
+                    { text: "55", bbox: { x0: 210, y0: 180, x1: 230, y1: 200 } },
+                    { text: "66", bbox: { x0: 270, y0: 180, x1: 290, y1: 200 } },
+
+                    { text: "9", bbox: { x0: 30, y0: 230, x1: 50, y1: 250 } },
+                    { text: "29", bbox: { x0: 90, y0: 230, x1: 110, y1: 250 } },
+                    { text: "41", bbox: { x0: 150, y0: 230, x1: 170, y1: 250 } },
+                    { text: "59", bbox: { x0: 210, y0: 230, x1: 230, y1: 250 } },
+                    { text: "73", bbox: { x0: 270, y0: 230, x1: 290, y1: 250 } },
+
+                    { text: "14", bbox: { x0: 30, y: 280, x: 50, y: 300 } },
+                    { text: "22", bbox: { x0: 90, y: 280, x: 110, y: 300 } },
+                    { text: "45", bbox: { x0: 150, y: 280, x: 170, y: 300 } },
+                    { text: "61", bbox: { x0: 210, y: 280, x: 230, y: 300 } },
+                    { text: "68", bbox: { x0: 270, y: 280, x: 290, y: 300 } }
+                ];
+                
+                setTimeout(() => {
+                    if (!this.isScanningLoopRunning) return;
+                    this.stopScanLoop();
+                    const grid = this.reconstructGrid(this.detectedWordsCache);
+                    if (this.onCardAutoCapturedCallback) {
+                        this.onCardAutoCapturedCallback(grid);
+                    }
+                }, 800);
+            }, 1000);
+        }
+    }
+
+    /**
+     * Detiene el bucle de escaneo.
+     */
+    stopScanLoop() {
+        this.isScanningLoopRunning = false;
+        const canvas = document.getElementById('scan-overlay-canvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    /**
+     * Ejecuta un paso del bucle de animación y escaneo continuo.
+     */
+    async tickScanLoop() {
+        if (!this.isScanningLoopRunning) return;
+
+        // 1. Dibujar overlays
+        this.drawOverlays();
+
+        // 2. Procesar OCR de forma no-bloqueante
+        if (!this.isOcrProcessing && this.tesseractWorker && !this.isWorkerInitializing && !this.isSimulated) {
+            this.isOcrProcessing = true;
+
+            const canvas = this.captureAndProcess();
+            if (canvas) {
+                // Preprocesar canvas para binarizar antes de mandarlo al worker
+                this.preprocessCanvas(canvas);
+
+                this.tesseractWorker.recognize(canvas)
+                    .then(result => {
+                        if (!this.isScanningLoopRunning) return;
+
+                        const words = result.data.words;
+                        this.detectedWordsCache = words || [];
+
+                        // Intentar reconstruir cuadrícula
+                        const grid = this.reconstructGrid(words);
+
+                        // Si cumple los requisitos de densidad y coherencia de 75 bolas, autocapturar
+                        if (this.isValid75BallCard(grid)) {
+                            this.stopScanLoop();
+                            if (this.onCardAutoCapturedCallback) {
+                                this.onCardAutoCapturedCallback(grid);
+                            }
+                        }
+                        this.isOcrProcessing = false;
+                    })
+                    .catch(err => {
+                        console.error("Error en reconocimiento continuo:", err);
+                        this.isOcrProcessing = false;
+                    });
+            } else {
+                this.isOcrProcessing = false;
+            }
+        }
+
+        requestAnimationFrame(() => this.tickScanLoop());
+    }
+
+    /**
+     * Dibuja los números reconocidos y recuadros sobre el stream en tiempo real.
+     */
+    drawOverlays() {
+        const canvas = document.getElementById('scan-overlay-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        const rect = canvas.getBoundingClientRect();
+        if (canvas.width !== rect.width || canvas.height !== rect.height) {
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const scaleX = canvas.width / 400;
+        const scaleY = canvas.height / 400;
+
+        this.detectedWordsCache.forEach(w => {
+            if (!w.text || !w.bbox) return;
+
+            const x0 = w.bbox.x0 * scaleX;
+            const y0 = w.bbox.y0 * scaleY;
+            const x1 = w.bbox.x1 * scaleX;
+            const y1 = w.bbox.y1 * scaleY;
+            const rw = x1 - x0;
+            const rh = y1 - y0;
+
+            const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+            if (cy < 45) return; // Ignorar cabecera
+
+            const upper = w.text.toUpperCase();
+            const isLibre = upper.includes("LIBRE") || upper.includes("FREE") || upper.includes("L1BRE") || upper.includes("FRE");
+
+            let isValid = false;
+            let displayVal = "";
+            const cx = (w.bbox.x0 + w.bbox.x1) / 2;
+            const colIdx = Math.max(0, Math.min(4, Math.floor(cx / 80)));
+
+            if (isLibre) {
+                isValid = true;
+                displayVal = "LIBRE";
+            } else {
+                const corrected = this.correctNumberForColumn(w.text, colIdx);
+                if (corrected !== null) {
+                    isValid = true;
+                    displayVal = corrected.toString();
+                } else {
+                    displayVal = w.text.replace(/[^0-9]/g, '');
+                }
+            }
+
+            // Dibujar recuadro de celda
+            ctx.shadowBlur = 8;
+            if (isValid) {
+                ctx.strokeStyle = '#06b6d4'; // Cyan para válidos
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+                ctx.shadowColor = 'rgba(6, 182, 212, 0.6)';
+            } else {
+                ctx.strokeStyle = '#ef4444'; // Rojo para dudosos
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.1)';
+                ctx.shadowColor = 'rgba(239, 68, 68, 0.5)';
+            }
+
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(x0, y0, rw, rh, 6);
+            } else {
+                ctx.rect(x0, y0, rw, rh);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            // Dibujar número digital clonado
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${Math.max(12, Math.round(rh * 0.7))}px 'Outfit', Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(displayVal, x0 + rw / 2, y0 + rh / 2);
+        });
+    }
+
+    /**
+     * Determina si se ha identificado de manera estable un cartón de bingo tradicional de 75 bolas.
+     */
+    isValid75BallCard(grid) {
+        let validDetectionsCount = 0;
+
+        this.detectedWordsCache.forEach(w => {
+            const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+            if (cy < 45) return;
+
+            const upper = w.text.toUpperCase();
+            const isLibre = upper.includes("LIBRE") || upper.includes("FREE") || upper.includes("L1BRE") || upper.includes("FRE");
+
+            if (isLibre) {
+                validDetectionsCount++;
+            } else {
+                const cx = (w.bbox.x0 + w.bbox.x1) / 2;
+                const colIdx = Math.max(0, Math.min(4, Math.floor(cx / 80)));
+                const corrected = this.correctNumberForColumn(w.text, colIdx);
+                if (corrected !== null) {
+                    validDetectionsCount++;
+                }
+            }
+        });
+
+        // Retorna true si hay al menos 12 celdas numéricas detectadas de forma válida en el cartón.
+        // Esto previene que se capturen objetos aleatorios o texto parcial.
+        return validDetectionsCount >= 12;
     }
 
     /**
@@ -209,23 +458,33 @@ class OcrService {
         this.isWorkerInitializing = true;
         if (statusCallback) statusCallback("Cargando OCR...");
 
-        try {
-            // Crear el worker indicando que use la versión en español/inglés
-            this.tesseractWorker = await Tesseract.createWorker('spa', 1, {
+        // Definir una promesa para iniciar el worker en línea
+        const initOnlineWorker = async () => {
+            const worker = await Tesseract.createWorker('spa', 1, {
                 workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/worker.min.js',
                 langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                 corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.2/tesseract-core.wasm.js'
             });
             
-            await this.tesseractWorker.setParameters({
+            await worker.setParameters({
                 tessedit_char_whitelist: '0123456789LIBREfreeFREE '
             });
+            return worker;
+        };
 
+        // Crear una promesa de timeout que se rechaza a los 4 segundos
+        const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Timeout inicializando Tesseract en línea")), 4000)
+        );
+
+        try {
+            // Intentar cargar en línea con un límite de tiempo
+            this.tesseractWorker = await Promise.race([initOnlineWorker(), timeoutPromise]);
             if (statusCallback) statusCallback("OCR Listo");
         } catch (err) {
-            console.error("Fallo al inicializar Tesseract en línea, intentando fallback local:", err);
+            console.warn("Fallo o timeout al inicializar Tesseract en línea, intentando fallback:", err);
             try {
-                // Fallback simplificado a carga por defecto si las rutas personalizadas fallan offline
+                // Fallback a carga local/estándar por defecto
                 this.tesseractWorker = await Tesseract.createWorker();
                 await this.tesseractWorker.loadLanguage('spa');
                 await this.tesseractWorker.initialize('spa');
