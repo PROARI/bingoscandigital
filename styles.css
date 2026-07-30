@@ -1595,3 +1595,19 @@ body {
 .torch-btn:hover {
     transform: scale(1.08);
 }
+
+/* Animación para indicar error de validación en la verificación manual */
+.invalid-blink {
+    border-color: var(--color-danger) !important;
+    background-color: var(--color-danger-glow) !important;
+    animation: blinkRed 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes blinkRed {
+    0% {
+        box-shadow: 0 0 2px var(--color-danger);
+    }
+    100% {
+        box-shadow: 0 0 10px var(--color-danger);
+    }
+}

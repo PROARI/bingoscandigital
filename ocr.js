@@ -827,6 +827,81 @@ class OcrService {
     }
 
     /**
+     * Corrige y valida un número detectado por OCR según su columna en un cartón de bingo de 75 bolas.
+     * Rango de columnas:
+     * - B (col 0): 1-15
+     * - I (col 1): 16-30
+     * - N (col 2): 31-45
+     * - G (col 3): 46-60
+     * - O (col 4): 61-75
+     * Retorna el número entero corregido, o null si no se puede corregir al rango de la columna.
+     */
+    correctNumberForColumn(text, colIdx) {
+        if (!text) return null;
+
+        // Limpiar el texto de caracteres no numéricos
+        let cleanText = text.replace(/[^0-9]/g, '');
+        if (cleanText === '') return null;
+
+        let num = parseInt(cleanText, 10);
+
+        // Rangos para cada columna
+        const ranges = [
+            { min: 1, max: 15 },   // Col 0: B
+            { min: 16, max: 30 },  // Col 1: I
+            { min: 31, max: 45 },  // Col 2: N
+            { min: 46, max: 60 },  // Col 3: G
+            { min: 61, max: 75 }   // Col 4: O
+        ];
+
+        const range = ranges[colIdx];
+        if (!range) return null;
+
+        // Si ya está en el rango correcto, retornarlo directamente
+        if (num >= range.min && num <= range.max) {
+            return num;
+        }
+
+        // --- SISTEMA INTELIGENTE DE CORRECCIÓN DE ERRORES OCR ---
+        // A veces el OCR lee dígitos de más o de menos, o confunde números.
+        
+        // 1. Si el número tiene 3 o más dígitos y el primero o el último es un "1" o "0" mal interpretado
+        // intentamos recortarlo.
+        let numStr = num.toString();
+        if (numStr.length > 2) {
+            // Probar recortar primer dígito
+            let tryNum1 = parseInt(numStr.substring(1), 10);
+            if (tryNum1 >= range.min && tryNum1 <= range.max) {
+                return tryNum1;
+            }
+            // Probar recortar último dígito
+            let tryNum2 = parseInt(numStr.substring(0, numStr.length - 1), 10);
+            if (tryNum2 >= range.min && tryNum2 <= range.max) {
+                return tryNum2;
+            }
+        }
+
+        // 2. Si el número tiene 1 dígito pero la columna requiere 2 dígitos (columnas 1, 2, 3, 4)
+        if (numStr.length === 1 && colIdx > 0) {
+            if (colIdx === 1) { // 16-30
+                if (10 + num >= 16 && 10 + num <= 30) return 10 + num;
+                if (20 + num >= 16 && 20 + num <= 30) return 20 + num;
+            } else if (colIdx === 2) { // 31-45
+                if (30 + num >= 31 && 30 + num <= 45) return 30 + num;
+                if (40 + num >= 31 && 40 + num <= 45) return 40 + num;
+            } else if (colIdx === 3) { // 46-60
+                if (40 + num >= 46 && 40 + num <= 60) return 40 + num;
+                if (50 + num >= 46 && 50 + num <= 60) return 50 + num;
+            } else if (colIdx === 4) { // 61-75
+                if (60 + num >= 61 && 60 + num <= 75) return 60 + num;
+                if (70 + num >= 61 && 70 + num <= 75) return 70 + num;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
      * Rellena las celdas que el OCR no detectó con valores aleatorios válidos para ese rango
      * para asegurar que el usuario tenga un cartón completo antes de la edición manual.
      */
