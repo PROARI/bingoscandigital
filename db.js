@@ -1,7 +1,7 @@
 /* BINGO SCAN DIGITAL - BASE DE DATOS (INDEXEDDB) */
 
 const DB_NAME = 'BingoScanDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 class BingoDB {
     constructor() {
@@ -36,6 +36,11 @@ class BingoDB {
                 // Almacén para configuraciones/preferencias
                 if (!db.objectStoreNames.contains('settings')) {
                     db.createObjectStore('settings', { keyPath: 'key' });
+                }
+
+                // Almacén para anuncios (publicidad)
+                if (!db.objectStoreNames.contains('ads')) {
+                    db.createObjectStore('ads', { keyPath: 'id' });
                 }
             };
         });
