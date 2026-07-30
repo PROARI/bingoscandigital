@@ -243,12 +243,24 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             
             // Iniciar bucle de escaneo continuo en tiempo real con realidad aumentada e inicialización paralela
-            window.ocrService.startScanLoop((grid) => {
+            window.ocrService.startScanLoop(async (canvas) => {
                 window.audioService.playTap();
                 window.ocrService.stopCamera();
-                hideOcrLoader();
-                showToast("Cartón escaneado y clonado con éxito.", "success");
-                openVerificationScreen(`Escaneado ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, grid);
+                showOcrLoader("Ejecutando doble verificación...");
+                try {
+                    const result = await window.ocrService.scanBingoCardDoubleVerification(canvas, (status) => {
+                        showOcrLoader(status);
+                    });
+                    hideOcrLoader();
+                    showToast("Cartón verificado con éxito.", "success");
+                    openVerificationScreen(`Escaneado ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, result.grid, result.statuses);
+                } catch (err) {
+                    hideOcrLoader();
+                    window.audioService.playError();
+                    showToast("Fallo al verificar el cartón. Cargando editor manual.", "warning");
+                    const grid = window.ocrService.generateRandomCardGrid();
+                    openVerificationScreen("Escaneado", grid);
+                }
             }, (status) => {
                 showOcrLoader(status);
                 if (status.includes("Listo")) {
@@ -321,17 +333,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         window.ocrService.stopCamera();
 
         try {
-            const grid = await window.ocrService.scanBingoCard(canvas, (status) => {
+            const result = await window.ocrService.scanBingoCardDoubleVerification(canvas, (status) => {
                 showOcrLoader(status);
             });
             hideOcrLoader();
-            showToast("Cartón escaneado con éxito.", "success");
-            openVerificationScreen(`Escaneado ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, grid);
+            showToast("Cartón verificado con éxito.", "success");
+            openVerificationScreen(`Escaneado ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, result.grid, result.statuses);
         } catch (err) {
             hideOcrLoader();
             window.audioService.playError();
-            showToast("Fallo al escanear. Cargando cuadrícula interactiva para corrección manual.", "warning");
-            // Cargar una cuadrícula aleatoria para no trabar al usuario
+            showToast("Fallo al escanear. Cargando editor manual.", "warning");
             const grid = window.ocrService.generateRandomCardGrid();
             openVerificationScreen("Cartón Escaneado", grid);
         }
@@ -356,12 +367,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, 400, 400);
 
             try {
-                const grid = await window.ocrService.scanBingoCard(canvas, (status) => {
+                const result = await window.ocrService.scanBingoCardDoubleVerification(canvas, (status) => {
                     showOcrLoader(status);
                 });
                 hideOcrLoader();
-                showToast("Imagen importada correctamente.", "success");
-                openVerificationScreen("Importado de Galería", grid);
+                showToast("Imagen importada con doble verificación.", "success");
+                openVerificationScreen("Importado de Galería", result.grid, result.statuses);
             } catch (err) {
                 hideOcrLoader();
                 window.audioService.playError();
@@ -384,7 +395,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const verifyGridBody = document.getElementById('verify-grid-body');
     const verifyCardName = document.getElementById('verify-card-name');
 
-    function openVerificationScreen(name, grid) {
+    function openVerificationScreen(name, grid, statuses = null) {
         verifyCardName.value = name;
         verifyGridBody.innerHTML = '';
 
@@ -393,11 +404,33 @@ document.addEventListener("DOMContentLoaded", async () => {
             for (let col = 0; col < 5; col++) {
                 const td = document.createElement('td');
                 const val = grid[row][col];
+                const status = statuses ? statuses[row][col] : null;
 
                 if (row === 2 && col === 2) {
                     td.innerHTML = `<input type="text" class="verify-grid-cell-input free-cell" value="LIBRE" readonly tabindex="-1">`;
                 } else {
-                    td.innerHTML = `<input type="number" class="verify-grid-cell-input" min="1" max="75" value="${val}" data-row="${row}" data-col="${col}">`;
+                    let statusClass = '';
+                    let statusTitle = '';
+                    if (status === 'verified') {
+                        statusClass = 'cell-verified';
+                        statusTitle = 'Número verificado doblemente';
+                    } else if (status === 'conflict') {
+                        statusClass = 'cell-conflict';
+                        statusTitle = 'Conflicto detectado. Por favor, verificar.';
+                    } else if (status === 'empty') {
+                        statusClass = 'cell-empty';
+                        statusTitle = 'Número no detectado. Por favor, ingresar.';
+                    } else if (status === 'detected') {
+                        statusClass = 'cell-detected';
+                        statusTitle = 'Número detectado en una sola pasada';
+                    }
+
+                    td.innerHTML = `
+                        <div class="verify-cell-container ${statusClass}" title="${statusTitle}">
+                            <input type="number" class="verify-grid-cell-input" min="1" max="75" value="${val}" data-row="${row}" data-col="${col}">
+                            ${status ? '<span class="status-indicator"></span>' : ''}
+                        </div>
+                    `;
                 }
                 tr.appendChild(td);
             }

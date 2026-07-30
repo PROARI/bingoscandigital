@@ -634,6 +634,103 @@ body {
     gap: 16px;
 }
 
+.verify-legend {
+    display: flex;
+    justify-content: space-around;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-sm);
+    padding: 8px 12px;
+    margin-top: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-muted);
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.legend-dot.green { background-color: var(--color-success); }
+.legend-dot.yellow { background-color: #f59e0b; }
+.legend-dot.cyan { background-color: var(--primary-cyan); }
+.legend-dot.red { background-color: var(--color-danger); }
+
+/* Contenedores e indicadores de celda de verificación */
+.verify-cell-container {
+    position: relative;
+    width: 100%;
+}
+
+.verify-cell-container .verify-grid-cell-input {
+    padding-right: 20px; /* Espacio para el indicador */
+}
+
+/* Indicador (punto circular) */
+.verify-cell-container .status-indicator {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+    transition: var(--transition-smooth);
+}
+
+/* Estilos de celdas según estados */
+.verify-cell-container.cell-verified .verify-grid-cell-input {
+    border: 1.5px solid var(--color-success) !important;
+    background: rgba(16, 185, 129, 0.08) !important;
+}
+.verify-cell-container.cell-verified .status-indicator {
+    background-color: var(--color-success);
+    box-shadow: 0 0 6px var(--color-success-glow);
+}
+
+.verify-cell-container.cell-conflict .verify-grid-cell-input {
+    border: 1.5px solid #f59e0b !important;
+    background: rgba(245, 158, 11, 0.08) !important;
+}
+.verify-cell-container.cell-conflict .status-indicator {
+    background-color: #f59e0b;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
+}
+
+.verify-cell-container.cell-empty .verify-grid-cell-input {
+    border: 1.5px solid var(--color-danger) !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+}
+.verify-cell-container.cell-empty .status-indicator {
+    background-color: var(--color-danger);
+    box-shadow: 0 0 6px var(--color-danger-glow);
+}
+
+.verify-cell-container.cell-detected .verify-grid-cell-input {
+    border: 1.5px solid var(--primary-cyan) !important;
+    background: rgba(6, 182, 212, 0.08) !important;
+}
+.verify-cell-container.cell-detected .status-indicator {
+    background-color: var(--primary-cyan);
+    box-shadow: 0 0 6px var(--primary-cyan-glow);
+}
+
+/* Foco del input */
+.verify-cell-container .verify-grid-cell-input:focus {
+    background: rgba(15, 23, 42, 0.9) !important;
+    border-color: var(--accent-purple) !important;
+    box-shadow: 0 0 10px var(--accent-purple-glow) !important;
+}
+
 .card-name-input-group {
     display: flex;
     flex-direction: column;
@@ -1610,42 +1707,4 @@ body {
     100% {
         box-shadow: 0 0 10px var(--color-danger);
     }
-}
-
-/* Efecto Flash Shutter del Obturador */
-.shutter-flash {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: #ffffff;
-    z-index: 20;
-    pointer-events: none;
-}
-
-.shutter-flash.active {
-    animation: shutterFlashAnim 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
-}
-
-@keyframes shutterFlashAnim {
-    0% {
-        opacity: 0.95;
-    }
-    100% {
-        opacity: 0;
-    }
-}
-
-/* Canvas para congelar fotograma de cámara */
-#camera-preview-freeze {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    z-index: 15;
-    pointer-events: none;
-    background: #000;
 }

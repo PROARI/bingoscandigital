@@ -251,10 +251,7 @@ class OcrService {
 
                 this.tesseractWorker.recognize(canvas)
                     .then(result => {
-                        if (!this.isScanningLoopRunning) {
-                            this.isOcrProcessing = false;
-                            return;
-                        }
+                        if (!this.isScanningLoopRunning) return;
 
                         const words = result.data.words;
                         this.detectedWordsCache = words || [];
@@ -266,7 +263,8 @@ class OcrService {
                         if (this.isValid75BallCard(grid)) {
                             this.stopScanLoop();
                             if (this.onCardAutoCapturedCallback) {
-                                this.onCardAutoCapturedCallback(grid);
+                                const finalCanvas = this.captureAndProcess();
+                                this.onCardAutoCapturedCallback(finalCanvas);
                             }
                         }
                         this.isOcrProcessing = false;
@@ -401,14 +399,14 @@ class OcrService {
     /**
      * Captura el frame actual de video y recorta la región del recuadro.
      */
-    captureAndProcess(targetSize = 400) {
+    captureAndProcess() {
         if (this.isSimulated) {
             if (!this.simulatorCanvas) return null;
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            canvas.width = targetSize;
-            canvas.height = targetSize;
-            ctx.drawImage(this.simulatorCanvas, 0, 0, targetSize, targetSize);
+            canvas.width = 400;
+            canvas.height = 400;
+            ctx.drawImage(this.simulatorCanvas, 0, 0, 400, 400);
             return canvas;
         }
 
@@ -431,12 +429,12 @@ class OcrService {
         const sx = (videoWidth - boxSize) / 2;
         const sy = (videoHeight - boxSize) / 2;
 
-        // Tamaño objetivo del canvas preprocesado
-        canvas.width = targetSize;
-        canvas.height = targetSize;
+        // Tamaño objetivo del canvas preprocesado (400x400 px es ideal para OCR veloz)
+        canvas.width = 400;
+        canvas.height = 400;
 
         // Dibujar el recorte en el canvas
-        ctx.drawImage(this.videoElement, sx, sy, boxSize, boxSize, 0, 0, targetSize, targetSize);
+        ctx.drawImage(this.videoElement, sx, sy, boxSize, boxSize, 0, 0, 400, 400);
 
         return canvas; // Retornamos el canvas recortado
     }
@@ -598,13 +596,13 @@ class OcrService {
                 { text: "4", bbox: { x0: 30, y0: 180, x1: 50, y1: 200 } },
                 { text: "20", bbox: { x0: 90, y0: 180, x1: 110, y1: 200 } },
                 { text: "LIBRE", bbox: { x0: 150, y0: 180, x1: 170, y1: 200 } },
-                { text: "55", bbox: { x0: 210, y0: 180, x: 230, y: 200 } },
-                { text: "66", bbox: { x0: 270, y0: 180, x: 290, y: 200 } },
+                { text: "55", bbox: { x0: 210, y0: 180, x1: 230, y1: 200 } },
+                { text: "66", bbox: { x0: 270, y0: 180, x1: 290, y1: 200 } },
 
-                { text: "9", bbox: { x0: 30, y: 230, x: 50, y: 250 } },
-                { text: "29", bbox: { x0: 90, y: 230, x: 110, y: 250 } },
-                { text: "41", bbox: { x0: 150, y: 230, x: 170, y: 250 } },
-                { text: "59", bbox: { x0: 210, y: 230, x: 230, y: 250 } },
+                { text: "9", bbox: { x0: 30, y0: 230, x1: 50, y1: 250 } },
+                { text: "29", bbox: { x0: 90, y0: 230, x1: 110, y1: 250 } },
+                { text: "41", bbox: { x0: 150, y0: 230, x1: 170, y1: 250 } },
+                { text: "59", bbox: { x0: 210, y0: 230, x: 230, y: 250 } },
                 { text: "73", bbox: { x0: 270, y: 230, x: 290, y: 250 } },
 
                 { text: "14", bbox: { x0: 30, y: 280, x: 50, y: 300 } },
@@ -613,15 +611,7 @@ class OcrService {
                 { text: "61", bbox: { x0: 210, y: 280, x: 230, y: 300 } },
                 { text: "68", bbox: { x0: 270, y: 280, x: 290, y: 300 } }
             ];
-            return this.reconstructGrid(mockWords, canvas.width, canvas.height);
-        }
-
-        // Esperar a que se complete cualquier procesamiento OCR activo (por ejemplo, del bucle de escaneo o de una llamada anterior)
-        if (this.isOcrProcessing) {
-            if (statusCallback) statusCallback("Esperando que termine el procesamiento activo...");
-            while (this.isOcrProcessing) {
-                await new Promise(resolve => setTimeout(resolve, 50));
-            }
+            return this.reconstructGrid(mockWords);
         }
 
         if (statusCallback) statusCallback("Preprocesando imagen...");
@@ -631,218 +621,495 @@ class OcrService {
         if (statusCallback) statusCallback("Escaneando números...");
 
         try {
-            this.isOcrProcessing = true;
             const result = await this.tesseractWorker.recognize(canvas);
             const words = result.data.words;
             
-            return this.reconstructGrid(words, canvas.width, canvas.height);
+            return this.reconstructGrid(words);
         } catch (err) {
             console.error("Error durante reconocimiento OCR: ", err);
             throw err;
-        } finally {
-            this.isOcrProcessing = false;
         }
     }
-    /**
-     * Algoritmo de Reconstrucción Inteligente de Cuadrícula Bingo 5x5
-     * Clasifica palabras con números por coordenadas 2D e integra las reglas del juego.
-     */
-    reconstructGrid(ocrWords, canvasWidth = 400, canvasHeight = 400) {
-        const grid = Array(5).fill(null).map(() => Array(5).fill(""));
-        
-        // 1. Normalizar y filtrar palabras válidas escalando al espacio de referencia 400x400
-        const scaleX = 400 / canvasWidth;
-        const scaleY = 400 / canvasHeight;
 
+    /**
+     * Incrementa el contraste de la imagen para mejorar la lectura de números con trazos finos.
+     * Mapea el rango de grises presente del mínimo al máximo para ocupar todo el rango [0, 255].
+     */
+    contrastStretch(data, width, height) {
+        let min = 255, max = 0;
+        const grays = new Uint8Array(width * height);
+        for (let i = 0; i < data.length; i += 4) {
+            const g = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+            grays[i / 4] = g;
+            if (g < min) min = g;
+            if (g > max) max = g;
+        }
+
+        const range = max - min;
+        if (range > 0) {
+            for (let i = 0; i < data.length; i += 4) {
+                const g = grays[i / 4];
+                const val = Math.round(((g - min) / range) * 255);
+                data[i] = val;
+                data[i + 1] = val;
+                data[i + 2] = val;
+            }
+        }
+    }
+
+    /**
+     * Realiza OCR con un proceso de doble verificación en dos pases independientes
+     * con preprocesamiento adaptativo y ajuste de contraste, respectivamente.
+     */
+    async scanBingoCardDoubleVerification(canvas, statusCallback) {
+        if (this.isSimulated || typeof Tesseract === 'undefined') {
+            if (statusCallback) statusCallback("Verificación: Pase 1 (Simulado)...");
+            await new Promise(resolve => setTimeout(resolve, 800));
+            if (statusCallback) statusCallback("Verificación: Pase 2 (Simulado)...");
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            const grid = [
+                [7, 18, 33, 48, 64],
+                ["", 25, 37, 52, 70],
+                [4, 20, "LIBRE", 55, 66],
+                [9, 29, 41, 59, 73],
+                [14, 22, 45, 61, 68]
+            ];
+
+            const statuses = [
+                ["verified", "verified", "verified", "conflict", "verified"],
+                ["empty", "verified", "detected", "verified", "verified"],
+                ["verified", "verified", "verified", "verified", "verified"],
+                ["verified", "conflict", "verified", "verified", "verified"],
+                ["verified", "verified", "verified", "verified", "verified"]
+            ];
+
+            return { grid, statuses };
+        }
+
+        // 1. Pase A: Adaptativo Bradley-Roth
+        if (statusCallback) statusCallback("Pase 1: Umbralización adaptativa...");
+        const canvasA = document.createElement('canvas');
+        canvasA.width = canvas.width;
+        canvasA.height = canvas.height;
+        const ctxA = canvasA.getContext('2d');
+        ctxA.drawImage(canvas, 0, 0);
+        this.preprocessCanvas(canvasA);
+
+        await this.initTesseract(statusCallback);
+        const resultA = await this.tesseractWorker.recognize(canvasA);
+        const wordsA = resultA.data.words || [];
+        const gridA = this.reconstructGridRaw(wordsA);
+
+        // 2. Pase B: Contraste Grayscale
+        if (statusCallback) statusCallback("Pase 2: Optimización de contraste...");
+        const canvasB = document.createElement('canvas');
+        canvasB.width = canvas.width;
+        canvasB.height = canvas.height;
+        const ctxB = canvasB.getContext('2d');
+        ctxB.drawImage(canvas, 0, 0);
+        
+        const imgDataB = ctxB.getImageData(0, 0, canvasB.width, canvasB.height);
+        this.contrastStretch(imgDataB.data, canvasB.width, canvasB.height);
+        ctxB.putImageData(imgDataB, 0, 0);
+
+        const resultB = await this.tesseractWorker.recognize(canvasB);
+        const wordsB = resultB.data.words || [];
+        const gridB = this.reconstructGridRaw(wordsB);
+
+        // 3. Cruzar resultados
+        const finalGrid = Array(5).fill(null).map(() => Array(5).fill(""));
+        const statuses = Array(5).fill(null).map(() => Array(5).fill(""));
+
+        for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+                if (r === 2 && c === 2) {
+                    finalGrid[r][c] = "LIBRE";
+                    statuses[r][c] = "verified";
+                    continue;
+                }
+
+                const cellA = gridA[r][c];
+                const cellB = gridB[r][c];
+
+                const valA = cellA.value;
+                const valB = cellB.value;
+
+                if (valA !== "" && valB !== "") {
+                    if (valA === valB) {
+                        finalGrid[r][c] = valA;
+                        statuses[r][c] = "verified";
+                    } else {
+                        // Conflicto de valores detectado
+                        // Usar el de mayor confianza
+                        if (cellA.confidence >= cellB.confidence) {
+                            finalGrid[r][c] = valA;
+                        } else {
+                            finalGrid[r][c] = valB;
+                        }
+                        statuses[r][c] = "conflict";
+                    }
+                } else if (valA !== "") {
+                    finalGrid[r][c] = valA;
+                    statuses[r][c] = "detected";
+                } else if (valB !== "") {
+                    finalGrid[r][c] = valB;
+                    statuses[r][c] = "detected";
+                } else {
+                    finalGrid[r][c] = "";
+                    statuses[r][c] = "empty";
+                }
+            }
+        }
+
+        return { grid: finalGrid, statuses: statuses };
+    }
+
+    /**
+     * Reconstruye la cuadrícula pero sin rellenar los vacíos y manteniendo la confianza del OCR
+     */
+    reconstructGridRaw(ocrWords) {
+        const grid = Array(5).fill(null).map(() => Array(5).fill(null).map(() => ({ value: "", confidence: 0 })));
+
+        // 1. Filtrar palabras válidas, ignorando la cabecera BINGO
         const validWords = [];
         ocrWords.forEach(w => {
             if (!w.text || !w.bbox) return;
-            const bbox = {
-                x0: w.bbox.x0 * scaleX,
-                x1: w.bbox.x1 * scaleX,
-                y0: w.bbox.y0 * scaleY,
-                y1: w.bbox.y1 * scaleY
-            };
-            const cy = (bbox.y0 + bbox.y1) / 2;
-            if (cy < 45) return; // Ignorar cabecera BINGO
-            validWords.push({ text: w.text, bbox: bbox });
+            const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+            if (cy < 45) return; // Ignorar encabezado
+            validWords.push(w);
         });
 
         if (validWords.length === 0) {
             return grid;
         }
 
-        // 2. Clasificar candidatos por columnas en base a su valor numérico estricto y rango esperado
-        const colCandidates = Array(5).fill(null).map(() => []);
-        const allParsedNumbers = [];
-
+        // 2. Agrupamiento por columnas usando 1D K-means determinista
+        const initialCols = Array(5).fill(null).map(() => []);
         validWords.forEach(w => {
             const cx = (w.bbox.x0 + w.bbox.x1) / 2;
-            const cy = (w.bbox.y0 + w.bbox.y1) / 2;
-
-            const cleanText = w.text.trim().toUpperCase();
-            const isLibre = cleanText.includes("LIBRE") || cleanText.includes("L1BRE") || cleanText.includes("FREE") || cleanText.includes("LIBR") || cleanText.includes("IBRE") || cleanText.includes("FRE");
-
-            if (isLibre) {
-                colCandidates[2].push({ val: "LIBRE", cx, cy });
-                allParsedNumbers.push({ val: "LIBRE", cx, cy, colIdx: 2 });
-            } else {
-                // Verificar a qué columna pertenece el número
-                for (let c = 0; c < 5; c++) {
-                    const correctedVal = this.correctNumberForColumn(w.text, c);
-                    if (correctedVal !== null) {
-                        const expectedCx = 40 + c * 80;
-                        if (Math.abs(cx - expectedCx) < 65) { // Filtro de cercanía espacial
-                            colCandidates[c].push({ val: correctedVal, cx, cy });
-                            allParsedNumbers.push({ val: correctedVal, cx, cy, colIdx: c });
-                            break;
-                        }
-                    }
-                }
-            }
+            let colIdx = Math.floor(cx / 80);
+            colIdx = Math.max(0, Math.min(4, colIdx));
+            initialCols[colIdx].push(cx);
         });
 
-        // 3. Ajustar centros de las columnas mediante Regresión Lineal (cx = colWidth * colIdx + leftMargin)
-        const colCenters = Array(5).fill(-1);
-        for (let c = 0; c < 5; c++) {
-            if (colCandidates[c].length > 0) {
-                const sum = colCandidates[c].reduce((acc, curr) => acc + curr.cx, 0);
-                colCenters[c] = sum / colCandidates[c].length;
+        const colCenters = Array(5).fill(0);
+        for (let i = 0; i < 5; i++) {
+            if (initialCols[i].length > 0) {
+                colCenters[i] = initialCols[i].reduce((sum, val) => sum + val, 0) / initialCols[i].length;
+            } else {
+                colCenters[i] = -1;
             }
         }
 
-        let knownCols = [];
-        for (let c = 0; c < 5; c++) {
-            if (colCenters[c] !== -1) {
-                knownCols.push({ x: c, y: colCenters[c] });
+        let firstKnownCol = -1;
+        for (let i = 0; i < 5; i++) {
+            if (colCenters[i] !== -1) {
+                firstKnownCol = i;
+                break;
             }
         }
 
-        let colWidth = 80;
-        let leftMargin = 40;
-
-        if (knownCols.length >= 2) {
-            let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
-            knownCols.forEach(p => {
-                sumX += p.x;
-                sumY += p.y;
-                sumXX += p.x * p.x;
-                sumXY += p.x * p.y;
-            });
-            const n = knownCols.length;
-            const denominator = (n * sumXX - sumX * sumX);
-            if (denominator !== 0) {
-                colWidth = (n * sumXY - sumX * sumY) / denominator;
-                leftMargin = (sumY - colWidth * sumX) / n;
-                
-                // Límites de seguridad
-                if (colWidth < 55 || colWidth > 105) {
-                    colWidth = 80;
-                    leftMargin = 40;
+        if (firstKnownCol === -1) {
+            for (let i = 0; i < 5; i++) {
+                colCenters[i] = 40 + i * 80;
+            }
+        } else {
+            let colWidth = 80;
+            let widthSum = 0;
+            let widthCount = 0;
+            for (let i = 0; i < 4; i++) {
+                if (colCenters[i] !== -1 && colCenters[i+1] !== -1) {
+                    widthSum += (colCenters[i+1] - colCenters[i]);
+                    widthCount++;
                 }
             }
-        } else if (knownCols.length === 1) {
-            colWidth = 80;
-            leftMargin = knownCols[0].y - colWidth * knownCols[0].x;
-        }
+            if (widthCount > 0) {
+                colWidth = widthSum / widthCount;
+            }
 
-        // Rellenar centros con el modelo lineal ajustado
-        for (let c = 0; c < 5; c++) {
-            colCenters[c] = colWidth * c + leftMargin;
-        }
-
-        // 4. Ajustar centros de las filas mediante clústering y Regresión Lineal
-        let rowCenters = [85, 155, 225, 295, 365]; // Estimaciones iniciales
-
-        if (allParsedNumbers.length > 0) {
-            // Algoritmo de clustering iterativo K-means 1D
-            for (let iter = 0; iter < 10; iter++) {
-                const clusters = Array(5).fill(null).map(() => []);
-                allParsedNumbers.forEach(p => {
-                    let bestR = 0;
-                    let minDist = Infinity;
-                    for (let r = 0; r < 5; r++) {
-                        const dist = Math.abs(p.cy - rowCenters[r]);
-                        if (dist < minDist) {
-                            minDist = dist;
-                            bestR = r;
-                        }
-                    }
-                    clusters[bestR].push(p.cy);
-                });
-                
-                for (let r = 0; r < 5; r++) {
-                    if (clusters[r].length > 0) {
-                        rowCenters[r] = clusters[r].reduce((sum, v) => sum + v, 0) / clusters[r].length;
-                    }
+            for (let i = 0; i < 5; i++) {
+                if (colCenters[i] === -1) {
+                    colCenters[i] = colCenters[firstKnownCol] + (i - firstKnownCol) * colWidth;
                 }
             }
+        }
 
-            // Regresión lineal para regularizar espaciado de filas (cy = rowHeight * rowIdx + topMargin)
-            const knownRows = [];
-            for (let r = 0; r < 5; r++) {
-                knownRows.push({ x: r, y: rowCenters[r] });
+        // 3. Agrupamiento por filas usando 1D K-means determinista
+        const initialRows = Array(5).fill(null).map(() => []);
+        validWords.forEach(w => {
+            const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+            let rowIdx = Math.floor((cy - 50) / 70);
+            rowIdx = Math.max(0, Math.min(4, rowIdx));
+            initialRows[rowIdx].push(cy);
+        });
+
+        const rowCenters = Array(5).fill(0);
+        for (let i = 0; i < 5; i++) {
+            if (initialRows[i].length > 0) {
+                rowCenters[i] = initialRows[i].reduce((sum, val) => sum + val, 0) / initialRows[i].length;
+            } else {
+                rowCenters[i] = -1;
             }
+        }
 
+        let firstKnownRow = -1;
+        for (let i = 0; i < 5; i++) {
+            if (rowCenters[i] !== -1) {
+                firstKnownRow = i;
+                break;
+            }
+        }
+
+        if (firstKnownRow === -1) {
+            for (let i = 0; i < 5; i++) {
+                rowCenters[i] = 85 + i * 70;
+            }
+        } else {
             let rowHeight = 70;
-            let topMargin = 85;
-
-            if (knownRows.length >= 2) {
-                let sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
-                knownRows.forEach(p => {
-                    sumX += p.x;
-                    sumY += p.y;
-                    sumXX += p.x * p.x;
-                    sumXY += p.x * p.y;
-                });
-                const n = knownRows.length;
-                const denominator = (n * sumXX - sumX * sumX);
-                if (denominator !== 0) {
-                    rowHeight = (n * sumXY - sumX * sumY) / denominator;
-                    topMargin = (sumY - rowHeight * sumX) / n;
-
-                    if (rowHeight < 45 || rowHeight > 90) {
-                        rowHeight = 70;
-                        topMargin = 85;
-                    }
+            let heightSum = 0;
+            let heightCount = 0;
+            for (let i = 0; i < 4; i++) {
+                if (rowCenters[i] !== -1 && rowCenters[i+1] !== -1) {
+                    heightSum += (rowCenters[i+1] - rowCenters[i]);
+                    heightCount++;
                 }
             }
+            if (heightCount > 0) {
+                rowHeight = heightSum / heightCount;
+            }
 
-            for (let r = 0; r < 5; r++) {
-                rowCenters[r] = rowHeight * r + topMargin;
+            for (let i = 0; i < 5; i++) {
+                if (rowCenters[i] === -1) {
+                    rowCenters[i] = rowCenters[firstKnownRow] + (i - firstKnownRow) * rowHeight;
+                }
             }
         }
 
-        // 5. Asignar todas las palabras del OCR a la celda del grid más cercana
+        // 4. Asignar palabras a su celda correspondiente
         const cellWords = Array(5).fill(null).map(() => Array(5).fill(null).map(() => []));
         validWords.forEach(w => {
             const cx = (w.bbox.x0 + w.bbox.x1) / 2;
             const cy = (w.bbox.y0 + w.bbox.y1) / 2;
 
             let bestCol = 0;
-            let minDistX = Infinity;
-            for (let c = 0; c < 5; c++) {
-                const dist = Math.abs(cx - colCenters[c]);
-                if (dist < minDistX) {
-                    minDistX = dist;
-                    bestCol = c;
+            let minColDist = Infinity;
+            for (let i = 0; i < 5; i++) {
+                const dist = Math.abs(cx - colCenters[i]);
+                if (dist < minColDist) {
+                    minColDist = dist;
+                    bestCol = i;
                 }
             }
 
             let bestRow = 0;
-            let minDistY = Infinity;
-            for (let r = 0; r < 5; r++) {
-                const dist = Math.abs(cy - rowCenters[r]);
-                if (dist < minDistY) {
-                    minDistY = dist;
-                    bestRow = r;
+            let minRowDist = Infinity;
+            for (let i = 0; i < 5; i++) {
+                const dist = Math.abs(cy - rowCenters[i]);
+                if (dist < minRowDist) {
+                    minRowDist = dist;
+                    bestRow = i;
                 }
             }
 
             cellWords[bestRow][bestCol].push(w);
         });
 
-        // 6. Construir cuadrícula final procesando los textos concatenados de cada celda
+        // 5. Procesar celdas
+        for (let r = 0; r < 5; r++) {
+            for (let c = 0; c < 5; c++) {
+                if (r === 2 && c === 2) {
+                    grid[r][c] = { value: "LIBRE", confidence: 100 };
+                    continue;
+                }
+
+                const wordsInCell = cellWords[r][c];
+                if (wordsInCell.length === 0) {
+                    grid[r][c] = { value: "", confidence: 0 };
+                    continue;
+                }
+
+                wordsInCell.sort((a, b) => a.bbox.x0 - b.bbox.x0);
+                const combinedText = wordsInCell.map(w => w.text).join("");
+                const avgConf = wordsInCell.reduce((sum, w) => sum + (w.confidence || 0), 0) / wordsInCell.length;
+                const upperText = combinedText.toUpperCase();
+
+                const isLibre = upperText.includes("LIBRE") || 
+                                upperText.includes("L1BRE") || 
+                                upperText.includes("LIBR") || 
+                                upperText.includes("IBRE") || 
+                                upperText.includes("FREE") || 
+                                upperText.includes("FR33") || 
+                                upperText.includes("FRE");
+
+                if (isLibre) {
+                    grid[r][c] = { value: "LIBRE", confidence: avgConf };
+                } else {
+                    const correctedNum = this.correctNumberForColumn(combinedText, c);
+                    if (correctedNum !== null) {
+                        grid[r][c] = { value: correctedNum, confidence: avgConf };
+                    } else {
+                        grid[r][c] = { value: "", confidence: 0 };
+                    }
+                }
+            }
+        }
+
+        return grid;
+    }
+    /**
+     * Algoritmo de Reconstrucción Inteligente de Cuadrícula Bingo 5x5
+     * Clasifica palabras con números por coordenadas 2D e integra las reglas del juego.
+     */
+    reconstructGrid(ocrWords) {
+        const grid = Array(5).fill(null).map(() => Array(5).fill(""));
+        
+        // 1. Filtrar palabras válidas, ignorando la cabecera BINGO
+        const validWords = [];
+        ocrWords.forEach(w => {
+            if (!w.text || !w.bbox) return;
+            const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+            if (cy < 45) return; // Ignorar encabezado
+            validWords.push(w);
+        });
+
+        if (validWords.length === 0) {
+            this.fillEmptyCells(grid);
+            return grid;
+        }
+
+        // 2. Agrupamiento por columnas usando 1D K-means determinista
+        const initialCols = Array(5).fill(null).map(() => []);
+        validWords.forEach(w => {
+            const cx = (w.bbox.x0 + w.bbox.x1) / 2;
+            let colIdx = Math.floor(cx / 80);
+            colIdx = Math.max(0, Math.min(4, colIdx));
+            initialCols[colIdx].push(cx);
+        });
+
+        const colCenters = Array(5).fill(0);
+        for (let i = 0; i < 5; i++) {
+            if (initialCols[i].length > 0) {
+                colCenters[i] = initialCols[i].reduce((sum, val) => sum + val, 0) / initialCols[i].length;
+            } else {
+                colCenters[i] = -1;
+            }
+        }
+
+        let firstKnownCol = -1;
+        for (let i = 0; i < 5; i++) {
+            if (colCenters[i] !== -1) {
+                firstKnownCol = i;
+                break;
+            }
+        }
+
+        if (firstKnownCol === -1) {
+            for (let i = 0; i < 5; i++) {
+                colCenters[i] = 40 + i * 80;
+            }
+        } else {
+            let colWidth = 80;
+            let widthSum = 0;
+            let widthCount = 0;
+            for (let i = 0; i < 4; i++) {
+                if (colCenters[i] !== -1 && colCenters[i+1] !== -1) {
+                    widthSum += (colCenters[i+1] - colCenters[i]);
+                    widthCount++;
+                }
+            }
+            if (widthCount > 0) {
+                colWidth = widthSum / widthCount;
+            }
+
+            for (let i = 0; i < 5; i++) {
+                if (colCenters[i] === -1) {
+                    colCenters[i] = colCenters[firstKnownCol] + (i - firstKnownCol) * colWidth;
+                }
+            }
+        }
+
+        // 3. Agrupamiento por filas usando 1D K-means determinista
+        const initialRows = Array(5).fill(null).map(() => []);
+        validWords.forEach(w => {
+            const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+            let rowIdx = Math.floor((cy - 50) / 70);
+            rowIdx = Math.max(0, Math.min(4, rowIdx));
+            initialRows[rowIdx].push(cy);
+        });
+
+        const rowCenters = Array(5).fill(0);
+        for (let i = 0; i < 5; i++) {
+            if (initialRows[i].length > 0) {
+                rowCenters[i] = initialRows[i].reduce((sum, val) => sum + val, 0) / initialRows[i].length;
+            } else {
+                rowCenters[i] = -1;
+            }
+        }
+
+        let firstKnownRow = -1;
+        for (let i = 0; i < 5; i++) {
+            if (rowCenters[i] !== -1) {
+                firstKnownRow = i;
+                break;
+            }
+        }
+
+        if (firstKnownRow === -1) {
+            for (let i = 0; i < 5; i++) {
+                rowCenters[i] = 85 + i * 70;
+            }
+        } else {
+            let rowHeight = 70;
+            let heightSum = 0;
+            let heightCount = 0;
+            for (let i = 0; i < 4; i++) {
+                if (rowCenters[i] !== -1 && rowCenters[i+1] !== -1) {
+                    heightSum += (rowCenters[i+1] - rowCenters[i]);
+                    heightCount++;
+                }
+            }
+            if (heightCount > 0) {
+                rowHeight = heightSum / heightCount;
+            }
+
+            for (let i = 0; i < 5; i++) {
+                if (rowCenters[i] === -1) {
+                    rowCenters[i] = rowCenters[firstKnownRow] + (i - firstKnownRow) * rowHeight;
+                }
+            }
+        }
+
+        // 4. Asignar palabras a su celda correspondiente
+        const cellWords = Array(5).fill(null).map(() => Array(5).fill(null).map(() => []));
+        validWords.forEach(w => {
+            const cx = (w.bbox.x0 + w.bbox.x1) / 2;
+            const cy = (w.bbox.y0 + w.bbox.y1) / 2;
+
+            let bestCol = 0;
+            let minColDist = Infinity;
+            for (let i = 0; i < 5; i++) {
+                const dist = Math.abs(cx - colCenters[i]);
+                if (dist < minColDist) {
+                    minColDist = dist;
+                    bestCol = i;
+                }
+            }
+
+            let bestRow = 0;
+            let minRowDist = Infinity;
+            for (let i = 0; i < 5; i++) {
+                const dist = Math.abs(cy - rowCenters[i]);
+                if (dist < minRowDist) {
+                    minRowDist = dist;
+                    bestRow = i;
+                }
+            }
+
+            cellWords[bestRow][bestCol].push(w);
+        });
+
+        // 5. Procesar celdas
         for (let r = 0; r < 5; r++) {
             for (let c = 0; c < 5; c++) {
                 if (r === 2 && c === 2) {
@@ -856,7 +1123,7 @@ class OcrService {
                     continue;
                 }
 
-                // Concatenar horizontalmente para manejar números cortados
+                // Concatenar de izquierda a derecha por si se dividió el número
                 wordsInCell.sort((a, b) => a.bbox.x0 - b.bbox.x0);
                 const combinedText = wordsInCell.map(w => w.text).join("");
                 const upperText = combinedText.toUpperCase();
@@ -882,6 +1149,8 @@ class OcrService {
             }
         }
 
+        this.fillEmptyCells(grid);
+
         return grid;
     }
 
@@ -898,30 +1167,8 @@ class OcrService {
     correctNumberForColumn(text, colIdx) {
         if (!text) return null;
 
-        // --- SISTEMA INTELIGENTE DE REEMPLAZO DE HOMÓGLIFOS OCR ---
-        let str = text.trim();
-        const homoglyphs = {
-            'I': '1', 'l': '1', 'i': '1', '|': '1', '!': '1', '[': '1', ']': '1',
-            'B': '8', 'b': '8',
-            'O': '0', 'o': '0',
-            'S': '5', 's': '5',
-            'G': '6', 'g': '6',
-            'Z': '2', 'z': '2',
-            'T': '7', 't': '7',
-            'A': '4'
-        };
-        
-        let correctedStr = "";
-        for (let char of str) {
-            if (homoglyphs[char] !== undefined) {
-                correctedStr += homoglyphs[char];
-            } else {
-                correctedStr += char;
-            }
-        }
-
         // Limpiar el texto de caracteres no numéricos
-        let cleanText = correctedStr.replace(/[^0-9]/g, '');
+        let cleanText = text.replace(/[^0-9]/g, '');
         if (cleanText === '') return null;
 
         let num = parseInt(cleanText, 10);

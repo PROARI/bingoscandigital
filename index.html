@@ -144,10 +144,6 @@
                         </button>
                         <!-- Simulator Canvas (Fallback) -->
                         <canvas id="scan-simulator-canvas" class="hidden" style="width: 100%; height: 100%; object-fit: cover;"></canvas>
-                        <!-- Freeze Frame Canvas Preview -->
-                        <canvas id="camera-preview-freeze" class="hidden"></canvas>
-                        <!-- Shutter Flash Effect -->
-                        <div id="shutter-flash" class="shutter-flash hidden"></div>
                         <!-- Grid Overlay -->
                         <div class="scanner-overlay">
                             <div class="scanner-frame">
@@ -196,6 +192,12 @@
                 <div class="view-header">
                     <h2>Verificación del Cartón</h2>
                     <p class="section-desc">Revisa y edita los números detectados para garantizar que sean correctos.</p>
+                    <div class="verify-legend">
+                        <span class="legend-item"><span class="legend-dot green"></span> Verificado</span>
+                        <span class="legend-item"><span class="legend-dot yellow"></span> Conflicto</span>
+                        <span class="legend-item"><span class="legend-dot cyan"></span> Detectado</span>
+                        <span class="legend-item"><span class="legend-dot red"></span> Vacío</span>
+                    </div>
                 </div>
 
                 <div class="verify-container">
