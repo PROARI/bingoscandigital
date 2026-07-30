@@ -221,7 +221,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    document.getElementById('btn-main-config').addEventListener('click', () => showView('config'));
     document.getElementById('btn-global-config').addEventListener('click', () => showView('config'));
 
     // Modal para agregar cartón
