@@ -8,6 +8,7 @@ class OcrService {
         this.tesseractWorker = null;
         this.isWorkerInitializing = false;
         this.isSimulated = false;
+        this.isTorchActive = false;
         
         // Propiedades para escaneo en tiempo real y overlays
         this.isScanningLoopRunning = false;
@@ -23,6 +24,7 @@ class OcrService {
         this.videoElement = videoElement;
         this.simulatorCanvas = simulatorCanvas;
         this.isSimulated = false;
+        this.isTorchActive = false;
 
         if (this.simulatorCanvas) {
             this.simulatorCanvas.classList.add('hidden');
@@ -49,6 +51,7 @@ class OcrService {
             this.stream = await navigator.mediaDevices.getUserMedia(constraints);
             this.videoElement.srcObject = this.stream;
             await this.videoElement.play();
+            this.checkTorchSupport();
             return true;
         } catch (err) {
             console.warn("Fallo cámara trasera, intentando genérica...", err);
@@ -57,6 +60,7 @@ class OcrService {
                 this.stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 this.videoElement.srcObject = this.stream;
                 await this.videoElement.play();
+                this.checkTorchSupport();
                 return true;
             } catch (innerErr) {
                 console.error("Fallo total de cámara, activando simulador...", innerErr);
@@ -66,6 +70,7 @@ class OcrService {
                     this.simulatorCanvas.classList.remove('hidden');
                     this.drawSimulatedCard(this.simulatorCanvas);
                 }
+                this.checkTorchSupport();
                 return true; // Retornar true para habilitar el flujo con simulador
             }
         }
@@ -75,6 +80,12 @@ class OcrService {
      * Detiene la transmisión de la cámara.
      */
     stopCamera() {
+        this.isTorchActive = false;
+        const torchBtn = document.getElementById('btn-toggle-torch');
+        if (torchBtn) {
+            torchBtn.classList.add('hidden');
+            torchBtn.classList.remove('active');
+        }
         if (this.stream) {
             this.stream.getTracks().forEach(track => track.stop());
             this.stream = null;
@@ -85,9 +96,63 @@ class OcrService {
     }
 
     /**
+     * Comprueba si el dispositivo soporta linterna (torch) y actualiza el botón en pantalla.
+     */
+    checkTorchSupport() {
+        const torchBtn = document.getElementById('btn-toggle-torch');
+        if (!torchBtn) return;
+
+        if (this.isSimulated || !this.stream) {
+            torchBtn.classList.add('hidden');
+            return;
+        }
+
+        const track = this.stream.getVideoTracks()[0];
+        if (track && typeof track.getCapabilities === 'function') {
+            try {
+                const capabilities = track.getCapabilities();
+                if (capabilities.torch) {
+                    torchBtn.classList.remove('hidden');
+                    return;
+                }
+            } catch (e) {
+                console.warn("Error al leer capacidades de cámara para la linterna:", e);
+            }
+        }
+        torchBtn.classList.add('hidden');
+    }
+
+    /**
+     * Alterna el encendido/apagado de la linterna (torch) de la cámara.
+     */
+    async toggleTorch() {
+        if (!this.stream || this.isSimulated) return false;
+        const track = this.stream.getVideoTracks()[0];
+        if (!track) return false;
+
+        const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+        if (!capabilities.torch) {
+            console.warn("Linterna no soportada en esta cámara.");
+            return false;
+        }
+
+        const targetState = !this.isTorchActive;
+        try {
+            await track.applyConstraints({
+                advanced: [{ torch: targetState }]
+            });
+            this.isTorchActive = targetState;
+            return true;
+        } catch (err) {
+            console.error("Error al aplicar constraints de linterna:", err);
+            return false;
+        }
+    }
+
+    /**
      * Inicia el bucle de escaneo continuo en tiempo real con realidad aumentada.
      */
-    startScanLoop(onAutoCaptureCallback) {
+    startScanLoop(onAutoCaptureCallback, statusCallback) {
         this.isScanningLoopRunning = true;
         this.isOcrProcessing = false;
         this.detectedWordsCache = [];
@@ -102,6 +167,9 @@ class OcrService {
 
         // Iniciar el bucle de animación
         this.tickScanLoop();
+
+        // Pre-inicializar Tesseract de inmediato en segundo plano para que esté cargado
+        this.initTesseract(statusCallback).catch(err => console.error("Error al pre-inicializar Tesseract:", err));
 
         if (this.isSimulated) {
             // Flujo simulado: simula detecciones y autocaptura tras 1.8 segundos
@@ -460,7 +528,7 @@ class OcrService {
 
         // Definir una promesa para iniciar el worker en línea
         const initOnlineWorker = async () => {
-            const worker = await Tesseract.createWorker('spa', 1, {
+            const worker = await Tesseract.createWorker('eng', 1, {
                 workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.0.5/dist/worker.min.js',
                 langPath: 'https://tessdata.projectnaptha.com/4.0.0',
                 corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.0.2/tesseract-core.wasm.js'
@@ -486,8 +554,8 @@ class OcrService {
             try {
                 // Fallback a carga local/estándar por defecto
                 this.tesseractWorker = await Tesseract.createWorker();
-                await this.tesseractWorker.loadLanguage('spa');
-                await this.tesseractWorker.initialize('spa');
+                await this.tesseractWorker.loadLanguage('eng');
+                await this.tesseractWorker.initialize('eng');
                 await this.tesseractWorker.setParameters({
                     tessedit_char_whitelist: '0123456789LIBREfreeFREE '
                 });

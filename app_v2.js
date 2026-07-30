@@ -232,27 +232,55 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById('modal-btn-scan').addEventListener('click', async () => {
         addCardModal.classList.add('hidden');
         showView('scan');
+        showOcrLoader("Inicializando cámara...");
         const video = document.getElementById('scan-video');
         const simulatorCanvas = document.getElementById('scan-simulator-canvas');
         const success = await window.ocrService.startCamera(video, simulatorCanvas);
         if (success) {
             if (window.ocrService.isSimulated) {
                 showToast("Usando cámara de prueba simulada.", "warning");
+                hideOcrLoader();
             }
             
-            // Iniciar bucle de escaneo continuo en tiempo real con realidad aumentada
+            // Iniciar bucle de escaneo continuo en tiempo real con realidad aumentada e inicialización paralela
             window.ocrService.startScanLoop((grid) => {
                 window.audioService.playTap();
                 window.ocrService.stopCamera();
                 hideOcrLoader();
                 showToast("Cartón escaneado y clonado con éxito.", "success");
                 openVerificationScreen(`Escaneado ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`, grid);
+            }, (status) => {
+                showOcrLoader(status);
+                if (status.includes("Listo")) {
+                    setTimeout(() => hideOcrLoader(), 800);
+                }
             });
         } else {
+            hideOcrLoader();
             showToast("No se pudo acceder a la cámara ni al simulador.", "danger");
             showView('main');
         }
     });
+
+    // Alternar linterna desde el botón en la cámara
+    const torchBtn = document.getElementById('btn-toggle-torch');
+    if (torchBtn) {
+        torchBtn.addEventListener('click', async () => {
+            window.audioService.playTap();
+            const toggled = await window.ocrService.toggleTorch();
+            if (toggled) {
+                if (window.ocrService.isTorchActive) {
+                    torchBtn.classList.add('active');
+                    showToast("Linterna encendida.", "success");
+                } else {
+                    torchBtn.classList.remove('active');
+                    showToast("Linterna apagada.", "warning");
+                }
+            } else {
+                showToast("La linterna no está disponible.", "danger");
+            }
+        });
+    }
 
     document.getElementById('modal-btn-gallery').addEventListener('click', () => {
         addCardModal.classList.add('hidden');

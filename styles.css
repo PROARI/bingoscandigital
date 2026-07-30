@@ -1559,3 +1559,39 @@ body {
     opacity: 0.7;
     letter-spacing: 0.5px;
 }
+
+/* Floating Flashlight/Torch Button */
+.torch-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    z-index: 12;
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.torch-btn.active {
+    background: var(--primary-cyan);
+    color: #0f172a;
+    box-shadow: 0 0 16px var(--primary-cyan-glow);
+    border-color: var(--primary-cyan);
+}
+
+.torch-btn.hidden {
+    display: none !important;
+}
+
+.torch-btn:hover {
+    transform: scale(1.08);
+}
