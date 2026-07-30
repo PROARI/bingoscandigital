@@ -286,7 +286,10 @@ body {
     border: 1px solid var(--glass-border);
 }
 
-#scan-video {
+#scan-video, #scan-simulator-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -1532,4 +1535,14 @@ body {
     display: flex;
     flex-direction: column;
     gap: 6px;
+}
+
+.copyright-footer {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: auto;
+    padding: 20px 0 10px 0;
+    opacity: 0.7;
+    letter-spacing: 0.5px;
 }
