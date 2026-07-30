@@ -13,19 +13,6 @@
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
-    <!-- Limpieza de Caché y Service Workers para Desarrollo -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(regs => {
-                for (let r of regs) r.unregister();
-            });
-        }
-        if (window.caches) {
-            caches.keys().then(keys => {
-                keys.forEach(k => caches.delete(k));
-            });
-        }
-    </script>
     <!-- Stylesheet -->
     <link rel="stylesheet" href="styles.css">
     <!-- Tesseract.js (Offline compatible CDN) -->

@@ -131,11 +131,11 @@ class VoiceService {
         const words = cleanText.split(' ');
         
         const units = {
-            "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
+            "un": 1, "una": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4, "cinco": 5,
             "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
             "once": 11, "doce": 12, "trece": 13, "catorce": 14, "quince": 15,
             "dieciseis": 16, "diecisiete": 17, "dieciocho": 18, "diecinueve": 19,
-            "veinte": 20, "veintiun": 21, "veintidos": 22, "veintitres": 23,
+            "veinte": 20, "veintiun": 21, "veintiuno": 21, "veintiuna": 21, "veintidos": 22, "veintitres": 23,
             "veinticuatro": 24, "veinticinco": 25, "veintiseis": 26,
             "veintisiete": 27, "veintiocho": 28, "veintinueve": 29
         };

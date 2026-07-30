@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bingo-scan-v5';
+const CACHE_NAME = 'bingo-scan-v9';
 const ASSETS = [
   'index.html',
   'styles.css',
