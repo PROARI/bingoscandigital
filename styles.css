@@ -1708,3 +1708,147 @@ body {
         box-shadow: 0 0 10px var(--color-danger);
     }
 }
+
+/* ==========================================================================
+   14. ADMINISTRACIÓN DE PUBLICIDAD & BANNERS
+   ========================================================================== */
+
+/* Banner de Publicidad Inferior */
+.ad-banner-container {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(15, 23, 42, 0.95);
+    border-top: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
+    z-index: 95;
+    padding: 8px 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: var(--transition-smooth);
+}
+
+.ad-banner-container.hidden {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ad-banner-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.ad-banner-wrapper img {
+    width: 100%;
+    height: auto;
+    max-height: 54px;
+    border-radius: var(--border-radius-sm);
+    object-fit: cover;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: var(--transition-smooth);
+    cursor: pointer;
+}
+
+.ad-banner-wrapper img:hover {
+    border-color: var(--primary-cyan);
+    box-shadow: 0 0 10px var(--primary-cyan-glow);
+}
+
+.ad-close-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--color-danger);
+    color: var(--text-main);
+    border: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-smooth);
+}
+
+.ad-close-btn:active {
+    transform: scale(0.85);
+    background: #dc2626;
+}
+
+/* Espacio dinámico para que los controles no queden ocultos tras el banner */
+.app-main.has-ad {
+    padding-bottom: 74px !important;
+}
+
+/* Estilos de entrada del Administrador */
+.admin-input {
+    width: 100%;
+    padding: 10px;
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--glass-border);
+    background: var(--bg-dark-less);
+    color: var(--text-main);
+    font-family: var(--font-family);
+    font-size: 0.9rem;
+    outline: none;
+    box-sizing: border-box;
+    transition: var(--transition-smooth);
+}
+
+.admin-input:focus {
+    border-color: var(--primary-cyan);
+    box-shadow: 0 0 8px var(--primary-cyan-glow);
+}
+
+/* Zona de Carga de Imagen (Dropzone) */
+#ad-image-dropzone:hover {
+    border-color: var(--primary-cyan) !important;
+    background: rgba(6, 182, 212, 0.05) !important;
+}
+
+#ad-image-preview {
+    max-height: 50px;
+    object-fit: contain;
+    border: 1px solid var(--glass-border);
+    border-radius: 4px;
+    margin-top: 6px;
+}
+
+/* Elementos de Lista de Anuncios */
+.ad-list-item {
+    transition: var(--transition-smooth);
+}
+
+.ad-list-item:hover {
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    background: rgba(30, 41, 59, 0.5) !important;
+}
+
+/* Estilos del modal de contraseña */
+#admin-password-input:focus {
+    border-color: var(--primary-cyan) !important;
+    box-shadow: 0 0 8px var(--primary-cyan-glow);
+}
+
+#admin-auth-error {
+    animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}

@@ -455,13 +455,160 @@
                         </div>
                     </div>
 
+                    <div class="config-section admin-access-box">
+                        <h3>Administrador de Publicidad</h3>
+                        <p class="section-desc">Acceso restringido para programar anuncios y banners en el sistema.</p>
+                        <button id="btn-admin-access" class="btn-secondary btn-icon-text" style="width: 100%; margin-top: 10px; justify-content: center;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                            <span>Acceso Panel de Anuncios</span>
+                        </button>
+                    </div>
+
                     <div class="config-section about-box">
                         <p><strong>Bingo Scan Digital v1.0.0 (MVP)</strong></p>
                         <p>Desarrollado para procesamiento OCR y análisis de voz en tiempo real sin conexión.</p>
                     </div>
                 </div>
             </section>
+
+            <!-- VISTA 7: ADMINISTRACIÓN DE ANUNCIOS -->
+            <section id="view-admin-ads" class="app-view">
+                <div class="view-header">
+                    <button id="btn-admin-back" class="btn-icon-text">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                        <span>Atrás</span>
+                    </button>
+                    <h2>Panel de Publicidad</h2>
+                </div>
+
+                <div class="config-container">
+                    <!-- Configuración de Sincronización Remota -->
+                    <div class="config-section">
+                        <h3>Sincronización de Anuncios</h3>
+                        <p class="section-desc">Permite mandar anuncios a todos los usuarios del sistema mediante una URL JSON.</p>
+                        
+                        <div class="pref-list" style="margin-top: 12px; display: flex; flex-direction: column; gap: 14px;">
+                            <div class="pref-item" style="display: flex; justify-content: space-between; align-items: center;">
+                                <div class="pref-info">
+                                    <h4>Sincronización Remota</h4>
+                                    <p>Descargar anuncios automáticamente de internet.</p>
+                                </div>
+                                <label class="switch">
+                                    <input type="checkbox" id="ad-sync-enabled">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                            
+                            <div class="form-group-custom" id="ad-sync-url-container" style="display: none; flex-direction: column; gap: 6px;">
+                                <label for="ad-sync-url" style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 2px;">URL del JSON de Anuncios:</label>
+                                <input type="url" id="ad-sync-url" class="admin-input" placeholder="https://ejemplo.com/anuncios.json" style="width: 100%; padding: 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--glass-border); background: var(--bg-dark-less); color: var(--text-main); font-size: 0.9rem; outline: none;">
+                            </div>
+
+                            <div style="display: flex; gap: 10px; margin-top: 5px;">
+                                <button id="btn-ad-sync-now" class="btn-primary btn-icon-text" style="flex: 1; padding: 10px; font-size: 0.85rem; justify-content: center;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                                    <span>Sincronizar Ahora</span>
+                                </button>
+                                <button id="btn-ad-export" class="btn-secondary btn-icon-text" style="flex: 1; padding: 10px; font-size: 0.85rem; justify-content: center;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    <span>Exportar JSON</span>
+                                </button>
+                            </div>
+
+                            <div id="export-json-container" class="hidden" style="margin-top: 10px;">
+                                <p class="section-desc" style="margin-bottom: 5px;">Copia este JSON y súbelo a tu servidor para que llegue a todos los usuarios:</p>
+                                <textarea id="export-json-textarea" readonly style="width: 100%; height: 120px; font-family: monospace; font-size: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: var(--border-radius-sm); color: var(--primary-cyan); padding: 8px; resize: none; box-sizing: border-box; outline: none;"></textarea>
+                                <button id="btn-copy-export-json" class="btn-success" style="width: 100%; margin-top: 5px; padding: 8px; font-size: 0.8rem; height: auto;">Copiar JSON</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Programar / Subir Anuncio -->
+                    <div class="config-section">
+                        <h3 id="ad-form-title">Programar Nuevo Anuncio</h3>
+                        <p class="section-desc">Crea un banner publicitario programado para mostrarse en momentos clave.</p>
+                        
+                        <form id="admin-ad-form" style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;" onsubmit="return false;">
+                            <input type="hidden" id="ad-edit-id" value="">
+                            
+                            <div class="form-group-custom">
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Título del Anuncio:</label>
+                                <input type="text" id="ad-title" required class="admin-input" placeholder="Ej: Promo de Fin de Semana" style="width: 100%; padding: 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--glass-border); background: var(--bg-dark-less); color: var(--text-main); font-size: 0.9rem; box-sizing: border-box;">
+                            </div>
+
+                            <div class="form-group-custom">
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Banner (Imagen):</label>
+                                <div id="ad-image-dropzone" style="border: 2px dashed var(--glass-border); border-radius: var(--border-radius-sm); padding: 20px; text-align: center; cursor: pointer; background: rgba(15, 23, 42, 0.3); transition: var(--transition-smooth); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    <span id="ad-image-status" style="font-size: 0.8rem; color: var(--text-muted);">Haz clic o arrastra una imagen (Recomendado: 500x70)</span>
+                                    <input type="file" id="ad-image-file" accept="image/*" style="display: none;">
+                                    <img id="ad-image-preview" src="" class="hidden" style="max-width: 100%; max-height: 60px; margin-top: 5px; border-radius: var(--border-radius-sm); object-fit: contain;">
+                                </div>
+                            </div>
+
+                            <div class="form-group-custom">
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">URL de Enlace (Al hacer clic):</label>
+                                <input type="url" id="ad-link-url" class="admin-input" placeholder="Ej: https://miweb.com/descuento" style="width: 100%; padding: 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--glass-border); background: var(--bg-dark-less); color: var(--text-main); font-size: 0.9rem; box-sizing: border-box;">
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div class="form-group-custom">
+                                    <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Mostrar Desde:</label>
+                                    <input type="datetime-local" id="ad-start-date" class="admin-input" style="width: 100%; padding: 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--glass-border); background: var(--bg-dark-less); color: var(--text-main); font-size: 0.85rem; box-sizing: border-box;">
+                                </div>
+                                <div class="form-group-custom">
+                                    <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Mostrar Hasta:</label>
+                                    <input type="datetime-local" id="ad-end-date" class="admin-input" style="width: 100%; padding: 10px; border-radius: var(--border-radius-sm); border: 1px solid var(--glass-border); background: var(--bg-dark-less); color: var(--text-main); font-size: 0.85rem; box-sizing: border-box;">
+                                </div>
+                            </div>
+
+                            <div class="form-group-custom">
+                                <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 4px;">Momento/Pantalla de Visualización:</label>
+                                <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
+                                    <label class="check-tile" style="padding: 8px 12px; font-size: 0.85rem;">
+                                        <input type="checkbox" id="ad-show-main" checked style="width: 16px; height: 16px;">
+                                        <span>Inicio (Pantalla Principal)</span>
+                                    </label>
+                                    <label class="check-tile" style="padding: 8px 12px; font-size: 0.85rem;">
+                                        <input type="checkbox" id="ad-show-cards" checked style="width: 16px; height: 16px;">
+                                        <span>Mis Cartones (Galería)</span>
+                                    </label>
+                                    <label class="check-tile" style="padding: 8px 12px; font-size: 0.85rem;">
+                                        <input type="checkbox" id="ad-show-play" checked style="width: 16px; height: 16px;">
+                                        <span>Pantalla de Juego</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px; margin-top: 8px;">
+                                <button type="submit" id="btn-ad-save" class="btn-success" style="flex: 1; padding: 12px;">Guardar Anuncio</button>
+                                <button type="button" id="btn-ad-cancel-edit" class="btn-danger-outline hidden" style="flex: 0.5; padding: 12px;">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Lista de Anuncios Programados -->
+                    <div class="config-section">
+                        <h3>Anuncios Programados</h3>
+                        <p class="section-desc">Lista de banners guardados en este dispositivo.</p>
+                        
+                        <div id="admin-ads-list" style="margin-top: 12px; display: flex; flex-direction: column; gap: 12px;">
+                            <!-- Inyectado dinámicamente -->
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
+    </div>
+
+    <!-- BANNER DE PUBLICIDAD FLOTANTE INFERIOR -->
+    <div id="ad-banner-container" class="ad-banner-container hidden">
+        <div class="ad-banner-wrapper">
+            <button id="btn-ad-close" class="ad-close-btn" aria-label="Cerrar Anuncio">&times;</button>
+            <a id="ad-banner-link" href="#" target="_blank">
+                <img id="ad-banner-image" src="" alt="Publicidad">
+            </a>
+        </div>
     </div>
 
     <!-- MODAL DE SELECCIÓN DE AGREGAR CARTÓN -->
@@ -496,6 +643,22 @@
             <h3 id="win-figure-name">LÍNEA HORIZONTAL</h3>
             <p id="win-card-info">En el Cartón de Juan</p>
             <button id="btn-win-close" class="btn-success">¡Genial!</button>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONTRASEÑA DE ADMINISTRADOR (NUEVO) -->
+    <div id="admin-auth-modal" class="modal-overlay hidden">
+        <div class="modal-card animate-scale-up">
+            <h3>Acceso Restringido</h3>
+            <p>Introduce la contraseña de administrador para ingresar al panel de publicidad.</p>
+            <div style="margin: 15px 0;">
+                <input type="password" id="admin-password-input" placeholder="Contraseña..." style="width: 100%; padding: 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--glass-border); background: var(--bg-dark-less); color: var(--text-main); text-align: center; font-size: 1.1rem; outline: none; box-sizing: border-box;">
+                <div id="admin-auth-error" class="hidden" style="color: var(--color-danger); font-size: 0.85rem; margin-top: 8px; text-align: center; font-weight: 600;">Contraseña incorrecta. Inténtalo de nuevo.</div>
+            </div>
+            <div class="modal-buttons">
+                <button id="btn-admin-auth-submit" class="btn-primary">Ingresar</button>
+                <button id="btn-admin-auth-cancel" class="btn-danger-outline">Cancelar</button>
+            </div>
         </div>
     </div>
 

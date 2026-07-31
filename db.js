@@ -144,6 +144,51 @@ class BingoDB {
             request.onerror = () => reject(`Error al leer configuración: ${key}.`);
         });
     }
+
+    /* --- OPERACIONES DE ANUNCIOS --- */
+
+    /**
+     * Guarda un anuncio nuevo o actualiza uno existente.
+     * @param {Object} ad Objeto del anuncio
+     */
+    saveAd(ad) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['ads'], 'readwrite');
+            const store = transaction.objectStore('ads');
+            const request = store.put(ad);
+
+            request.onsuccess = () => resolve(ad);
+            request.onerror = () => reject("Error al guardar el anuncio.");
+        });
+    }
+
+    /**
+     * Recupera todos los anuncios guardados.
+     */
+    getAllAds() {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['ads'], 'readonly');
+            const store = transaction.objectStore('ads');
+            const request = store.getAll();
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject("Error al recuperar los anuncios.");
+        });
+    }
+
+    /**
+     * Elimina un anuncio por su ID.
+     */
+    deleteAd(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['ads'], 'readwrite');
+            const store = transaction.objectStore('ads');
+            const request = store.delete(id);
+
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(`Error al eliminar el anuncio con ID ${id}.`);
+        });
+    }
 }
 
 // Exportar una instancia global

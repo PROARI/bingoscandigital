@@ -88,7 +88,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         verify: document.getElementById('view-verify'),
         cards: document.getElementById('view-cards'),
         play: document.getElementById('view-play'),
-        config: document.getElementById('view-config')
+        config: document.getElementById('view-config'),
+        adminAds: document.getElementById('view-admin-ads')
     };
 
     // 3. ENRUTADOR DE VISTAS
@@ -123,6 +124,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             renderCardsGallery();
         } else if (viewId === 'config') {
             renderConfigScreen();
+        } else if (viewId === 'adminAds') {
+            renderAdminAdsScreen();
+        }
+
+        // Actualizar el banner de anuncios para la vista actual
+        if (window.bannerManager) {
+            window.bannerManager.updateBannerForView(viewId);
         }
     }
 
@@ -985,4 +993,569 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         requestAnimationFrame(animateConfetti);
     }
+
+    // ==========================================================================
+    // SISTEMA DE ADMINISTRACIÓN DE ANUNCIOS Y BANNERS (PUBLICIDAD)
+    // ==========================================================================
+    let activeAds = [];
+    let uploadedAdImageBase64 = "";
+
+    // Elementos del DOM para administración
+    const adminAuthModal = document.getElementById('admin-auth-modal');
+    const adminPasswordInput = document.getElementById('admin-password-input');
+    const adminAuthError = document.getElementById('admin-auth-error');
+    const btnAdminAccess = document.getElementById('btn-admin-access');
+    const btnAdminAuthSubmit = document.getElementById('btn-admin-auth-submit');
+    const btnAdminAuthCancel = document.getElementById('btn-admin-auth-cancel');
+    const btnAdminBack = document.getElementById('btn-admin-back');
+
+    const adminAdForm = document.getElementById('admin-ad-form');
+    const adEditIdInput = document.getElementById('ad-edit-id');
+    const adTitleInput = document.getElementById('ad-title');
+    const adImageFileInput = document.getElementById('ad-image-file');
+    const adImageDropzone = document.getElementById('ad-image-dropzone');
+    const adImageStatus = document.getElementById('ad-image-status');
+    const adImagePreview = document.getElementById('ad-image-preview');
+    const adLinkUrlInput = document.getElementById('ad-link-url');
+    const adStartDateInput = document.getElementById('ad-start-date');
+    const adEndDateInput = document.getElementById('ad-end-date');
+    const adShowMainCheckbox = document.getElementById('ad-show-main');
+    const adShowCardsCheckbox = document.getElementById('ad-show-cards');
+    const adShowPlayCheckbox = document.getElementById('ad-show-play');
+    const btnAdSave = document.getElementById('btn-ad-save');
+    const btnAdCancelEdit = document.getElementById('btn-ad-cancel-edit');
+    const adminAdsList = document.getElementById('admin-ads-list');
+
+    const adSyncEnabledToggle = document.getElementById('ad-sync-enabled');
+    const adSyncUrlContainer = document.getElementById('ad-sync-url-container');
+    const adSyncUrlInput = document.getElementById('ad-sync-url');
+    const btnAdSyncNow = document.getElementById('btn-ad-sync-now');
+    const btnAdExport = document.getElementById('btn-ad-export');
+    const exportJsonContainer = document.getElementById('export-json-container');
+    const exportJsonTextarea = document.getElementById('export-json-textarea');
+    const btnCopyExportJson = document.getElementById('btn-copy-export-json');
+
+    const adBannerContainer = document.getElementById('ad-banner-container');
+    const adBannerLink = document.getElementById('ad-banner-link');
+    const adBannerImage = document.getElementById('ad-banner-image');
+    const btnAdClose = document.getElementById('btn-ad-close');
+
+    // 1. Acceso seguro por contraseña
+    if (btnAdminAccess) {
+        btnAdminAccess.addEventListener('click', () => {
+            adminPasswordInput.value = "";
+            adminAuthError.classList.add('hidden');
+            adminAuthModal.classList.remove('hidden');
+            adminPasswordInput.focus();
+        });
+    }
+
+    if (btnAdminAuthCancel) {
+        btnAdminAuthCancel.addEventListener('click', () => {
+            adminAuthModal.classList.add('hidden');
+        });
+    }
+
+    function submitAdminPassword() {
+        const password = adminPasswordInput.value;
+        if (password === "4206371Luis*") {
+            adminAuthModal.classList.add('hidden');
+            adminAuthError.classList.add('hidden');
+            showView('adminAds');
+        } else {
+            adminAuthError.classList.remove('hidden');
+            // Efecto shake
+            adminAuthError.style.animation = 'none';
+            setTimeout(() => adminAuthError.style.animation = '', 10);
+        }
+    }
+
+    if (btnAdminAuthSubmit) {
+        btnAdminAuthSubmit.addEventListener('click', submitAdminPassword);
+    }
+    
+    if (adminPasswordInput) {
+        adminPasswordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                submitAdminPassword();
+            }
+        });
+    }
+
+    if (btnAdminBack) {
+        btnAdminBack.addEventListener('click', () => {
+            showView('config');
+        });
+    }
+
+    // 2. Manejo de Subida de Imagen (FileReader a Base64)
+    if (adImageDropzone) {
+        adImageDropzone.addEventListener('click', () => adImageFileInput.click());
+        
+        adImageDropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            adImageDropzone.style.borderColor = 'var(--primary-cyan)';
+        });
+        
+        adImageDropzone.addEventListener('dragleave', () => {
+            adImageDropzone.style.borderColor = 'var(--glass-border)';
+        });
+        
+        adImageDropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            adImageDropzone.style.borderColor = 'var(--glass-border)';
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                adImageFileInput.files = e.dataTransfer.files;
+                handleAdImageSelect({ target: adImageFileInput });
+            }
+        });
+    }
+    
+    if (adImageFileInput) {
+        adImageFileInput.addEventListener('change', handleAdImageSelect);
+    }
+
+    function handleAdImageSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            showToast('El archivo seleccionado no es una imagen.', 'danger');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            uploadedAdImageBase64 = event.target.result;
+            adImagePreview.src = uploadedAdImageBase64;
+            adImagePreview.classList.remove('hidden');
+            adImageStatus.textContent = `Imagen cargada: ${file.name}`;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // 3. Formulario de guardar / editar anuncio
+    if (btnAdSave) {
+        btnAdSave.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const title = adTitleInput.value.trim();
+            const linkUrl = adLinkUrlInput.value.trim();
+            const startDate = adStartDateInput.value;
+            const endDate = adEndDateInput.value;
+            const showOnMain = adShowMainCheckbox.checked;
+            const showOnCards = adShowCardsCheckbox.checked;
+            const showOnPlay = adShowPlayCheckbox.checked;
+            const id = adEditIdInput.value || `ad_${Date.now()}`;
+
+            if (!title) {
+                showToast('Por favor, ingresa un título.', 'danger');
+                return;
+            }
+
+            if (!uploadedAdImageBase64 && !adEditIdInput.value) {
+                showToast('Por favor, sube una imagen de banner.', 'danger');
+                return;
+            }
+
+            let existingAd = null;
+            if (adEditIdInput.value) {
+                // Si editamos y no cargamos nueva imagen, mantenemos la anterior
+                const allAds = await window.dbService.getAllAds();
+                existingAd = allAds.find(a => a.id === adEditIdInput.value);
+            }
+
+            const adData = {
+                id,
+                title,
+                imageUrl: uploadedAdImageBase64 || (existingAd ? existingAd.imageUrl : ""),
+                linkUrl,
+                startDate,
+                endDate,
+                showOnMain,
+                showOnCards,
+                showOnPlay,
+                isActive: existingAd ? existingAd.isActive : true
+            };
+
+            try {
+                await window.dbService.saveAd(adData);
+                showToast(adEditIdInput.value ? 'Anuncio actualizado con éxito.' : 'Anuncio guardado con éxito.');
+                resetAdForm();
+                await renderAdminAdsScreen();
+                await bannerManager.refresh();
+            } catch (err) {
+                console.error(err);
+                showToast('Error al guardar el anuncio.', 'danger');
+            }
+        });
+    }
+
+    if (btnAdCancelEdit) {
+        btnAdCancelEdit.addEventListener('click', () => {
+            resetAdForm();
+        });
+    }
+
+    function resetAdForm() {
+        adEditIdInput.value = "";
+        adTitleInput.value = "";
+        adLinkUrlInput.value = "";
+        adStartDateInput.value = "";
+        adEndDateInput.value = "";
+        adShowMainCheckbox.checked = true;
+        adShowCardsCheckbox.checked = true;
+        adShowPlayCheckbox.checked = true;
+        adImageFileInput.value = "";
+        adImagePreview.src = "";
+        adImagePreview.classList.add('hidden');
+        adImageStatus.textContent = "Haz clic o arrastra una imagen (Recomendado: 500x70)";
+        uploadedAdImageBase64 = "";
+
+        document.getElementById('ad-form-title').textContent = "Programar Nuevo Anuncio";
+        btnAdSave.textContent = "Guardar Anuncio";
+        btnAdCancelEdit.classList.add('hidden');
+    }
+
+    // 4. Renderizar panel administrador de anuncios
+    async function renderAdminAdsScreen() {
+        if (!adminAdsList) return;
+        try {
+            const allAds = await window.dbService.getAllAds();
+            adminAdsList.innerHTML = "";
+
+            if (allAds.length === 0) {
+                adminAdsList.innerHTML = `<p style="font-size:0.85rem; color:var(--text-muted); text-align:center; padding: 20px;">No hay anuncios programados todavía.</p>`;
+                return;
+            }
+
+            allAds.forEach(ad => {
+                const item = document.createElement('div');
+                item.className = 'ad-list-item';
+                item.style.cssText = 'display: flex; gap: 12px; background: rgba(15, 23, 42, 0.4); border: 1px solid var(--glass-border); border-radius: var(--border-radius-sm); padding: 12px; align-items: center;';
+                
+                const showScreens = [];
+                if (ad.showOnMain) showScreens.push('Inicio');
+                if (ad.showOnCards) showScreens.push('Galería');
+                if (ad.showOnPlay) showScreens.push('Juego');
+
+                item.innerHTML = `
+                    <img src="${ad.imageUrl}" style="width: 60px; height: 40px; border-radius: 4px; object-fit: cover; background: #000; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="flex: 1; min-width: 0;">
+                        <h4 style="font-size: 0.9rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color:var(--text-main); font-weight:600;">${ad.title}</h4>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 2px 0 0 0;">
+                            ${ad.startDate ? new Date(ad.startDate).toLocaleDateString() : 'Siempre'} - 
+                            ${ad.endDate ? new Date(ad.endDate).toLocaleDateString() : 'Siempre'}
+                        </p>
+                        <p style="font-size: 0.7rem; color: var(--primary-cyan); margin: 2px 0 0 0; font-weight:600;">
+                            ${showScreens.join(', ')}
+                        </p>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+                        <label class="switch" style="transform: scale(0.8); transform-origin: right;">
+                            <input type="checkbox" class="ad-toggle-active" data-id="${ad.id}" ${ad.isActive ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                        <div style="display: flex; gap: 6px;">
+                            <button class="btn-edit-ad btn-icon" data-id="${ad.id}" title="Editar" style="padding: 4px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius:4px; cursor:pointer;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"/></svg>
+                            </button>
+                            <button class="btn-delete-ad btn-icon" data-id="${ad.id}" title="Eliminar" style="padding: 4px; width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius:4px; color: var(--color-danger); cursor:pointer;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                // Toggle active switch
+                item.querySelector('.ad-toggle-active').addEventListener('change', async (e) => {
+                    const adId = e.target.getAttribute('data-id');
+                    const checked = e.target.checked;
+                    const ad = allAds.find(a => a.id === adId);
+                    if (ad) {
+                        ad.isActive = checked;
+                        await window.dbService.saveAd(ad);
+                        showToast(checked ? 'Anuncio activado.' : 'Anuncio desactivado.');
+                        await bannerManager.refresh();
+                    }
+                });
+
+                // Edit click
+                item.querySelector('.btn-edit-ad').addEventListener('click', () => {
+                    adEditIdInput.value = ad.id;
+                    adTitleInput.value = ad.title;
+                    adLinkUrlInput.value = ad.linkUrl;
+                    adStartDateInput.value = ad.startDate || "";
+                    adEndDateInput.value = ad.endDate || "";
+                    adShowMainCheckbox.checked = ad.showOnMain;
+                    adShowCardsCheckbox.checked = ad.showOnCards;
+                    adShowPlayCheckbox.checked = ad.showOnPlay;
+                    
+                    uploadedAdImageBase64 = ""; // Mantener la anterior
+                    adImagePreview.src = ad.imageUrl;
+                    adImagePreview.classList.remove('hidden');
+                    adImageStatus.textContent = "Imagen actual (deja en blanco para mantener)";
+
+                    document.getElementById('ad-form-title').textContent = "Editar Anuncio";
+                    btnAdSave.textContent = "Actualizar Anuncio";
+                    btnAdCancelEdit.classList.remove('hidden');
+                    document.getElementById('ad-form-title').scrollIntoView({ behavior: 'smooth' });
+                });
+
+                // Delete click
+                item.querySelector('.btn-delete-ad').addEventListener('click', async () => {
+                    if (confirm(`¿Estás seguro de eliminar el anuncio "${ad.title}"?`)) {
+                        await window.dbService.deleteAd(ad.id);
+                        showToast('Anuncio eliminado.');
+                        await renderAdminAdsScreen();
+                        await bannerManager.refresh();
+                    }
+                });
+
+                adminAdsList.appendChild(item);
+            });
+        } catch (err) {
+            console.error(err);
+            showToast('Error al renderizar los anuncios.', 'danger');
+        }
+    }
+
+    // 5. Sincronización Remota e Importar/Exportar
+    if (adSyncEnabledToggle) {
+        adSyncEnabledToggle.addEventListener('change', async () => {
+            const enabled = adSyncEnabledToggle.checked;
+            adSyncUrlContainer.style.display = enabled ? 'flex' : 'none';
+            await window.dbService.saveSetting('adSyncEnabled', enabled);
+        });
+    }
+
+    if (adSyncUrlInput) {
+        adSyncUrlInput.addEventListener('change', async () => {
+            await window.dbService.saveSetting('adSyncUrl', adSyncUrlInput.value.trim());
+        });
+    }
+
+    if (btnAdSyncNow) {
+        btnAdSyncNow.addEventListener('click', syncAdsFromServer);
+    }
+
+    async function syncAdsFromServer() {
+        const enabled = adSyncEnabledToggle.checked;
+        const url = adSyncUrlInput.value.trim();
+        if (!enabled || !url) {
+            showToast('Por favor activa la sincronización remota e ingresa una URL válida.', 'warning');
+            return;
+        }
+
+        btnAdSyncNow.disabled = true;
+        btnAdSyncNow.querySelector('span').textContent = 'Sincronizando...';
+
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Error al descargar anuncios');
+            const data = await res.json();
+            
+            // Validar que la respuesta sea un array
+            const adsToImport = Array.isArray(data) ? data : (data.ads || []);
+            if (!Array.isArray(adsToImport)) {
+                throw new Error('El formato JSON no es válido.');
+            }
+
+            // Guardar anuncios remotos en la IndexedDB local
+            for (const remoteAd of adsToImport) {
+                if (remoteAd.id && remoteAd.title && remoteAd.imageUrl) {
+                    // Completar campos faltantes por seguridad
+                    const adObj = {
+                        id: remoteAd.id,
+                        title: remoteAd.title,
+                        imageUrl: remoteAd.imageUrl,
+                        linkUrl: remoteAd.linkUrl || "",
+                        startDate: remoteAd.startDate || "",
+                        endDate: remoteAd.endDate || "",
+                        showOnMain: remoteAd.showOnMain !== undefined ? remoteAd.showOnMain : true,
+                        showOnCards: remoteAd.showOnCards !== undefined ? remoteAd.showOnCards : true,
+                        showOnPlay: remoteAd.showOnPlay !== undefined ? remoteAd.showOnPlay : true,
+                        isActive: remoteAd.isActive !== undefined ? remoteAd.isActive : true
+                    };
+                    await window.dbService.saveAd(adObj);
+                }
+            }
+
+            showToast('¡Sincronización remota completada con éxito!');
+            await renderAdminAdsScreen();
+            await bannerManager.refresh();
+        } catch (err) {
+            console.error(err);
+            showToast('Fallo al sincronizar: ' + err.message, 'danger');
+        } finally {
+            btnAdSyncNow.disabled = false;
+            btnAdSyncNow.querySelector('span').textContent = 'Sincronizar Ahora';
+        }
+    }
+
+    if (btnAdExport) {
+        btnAdExport.addEventListener('click', async () => {
+            try {
+                const allAds = await window.dbService.getAllAds();
+                exportJsonTextarea.value = JSON.stringify(allAds, null, 2);
+                exportJsonContainer.classList.remove('hidden');
+                exportJsonTextarea.scrollIntoView({ behavior: 'smooth' });
+            } catch (err) {
+                showToast('Error al exportar anuncios.', 'danger');
+            }
+        });
+    }
+
+    if (btnCopyExportJson) {
+        btnCopyExportJson.addEventListener('click', () => {
+            exportJsonTextarea.select();
+            document.execCommand('copy');
+            showToast('JSON copiado al portapapeles.');
+        });
+    }
+
+    // Cargar configuraciones de sincronización inicial
+    async function loadSyncSettings() {
+        if (!adSyncEnabledToggle) return;
+        const syncEnabled = await window.dbService.getSetting('adSyncEnabled', false);
+        adSyncEnabledToggle.checked = syncEnabled;
+        adSyncUrlContainer.style.display = syncEnabled ? 'flex' : 'none';
+
+        const syncUrl = await window.dbService.getSetting('adSyncUrl', '');
+        adSyncUrlInput.value = syncUrl;
+
+        // Si la sincronización está activa y hay una URL, intentar sincronizar al iniciar
+        if (syncEnabled && syncUrl) {
+            setTimeout(() => {
+                syncAdsFromServer().catch(err => console.warn("Sincronización inicial falló:", err));
+            }, 2000);
+        }
+    }
+    await loadSyncSettings();
+
+    // 6. Administrador del Banner (Visualización y rotación dinámica)
+    class BannerManager {
+        constructor() {
+            this.rotationInterval = null;
+            this.currentViewId = 'main';
+            this.matchingAds = [];
+            this.currentAdIndex = 0;
+            this.isDismissedForView = false;
+            
+            // Vincular evento de cerrado
+            if (btnAdClose) {
+                btnAdClose.addEventListener('click', () => {
+                    this.dismissBanner();
+                });
+            }
+        }
+
+        async refresh() {
+            await this.updateBannerForView(this.currentViewId);
+        }
+
+        dismissBanner() {
+            this.isDismissedForView = true;
+            adBannerContainer.classList.add('hidden');
+            document.querySelector('.app-main').classList.remove('has-ad');
+            this.stopRotation();
+        }
+
+        stopRotation() {
+            if (this.rotationInterval) {
+                clearInterval(this.rotationInterval);
+                this.rotationInterval = null;
+            }
+        }
+
+        async updateBannerForView(viewId) {
+            this.currentViewId = viewId;
+            
+            // Restablecer el estado de cerrado si cambiamos de vista
+            this.isDismissedForView = false;
+            this.stopRotation();
+
+            // Vistas donde NO se debe mostrar la publicidad por usabilidad
+            const bannedViews = ['install-gate', 'scan', 'verify', 'adminAds'];
+            if (bannedViews.includes(viewId)) {
+                adBannerContainer.classList.add('hidden');
+                document.querySelector('.app-main').classList.remove('has-ad');
+                return;
+            }
+
+            try {
+                const allAds = await window.dbService.getAllAds();
+                const now = new Date();
+
+                // Filtrar anuncios activos y programados
+                this.matchingAds = allAds.filter(ad => {
+                    if (!ad.isActive) return false;
+
+                    // Validar filtros por vista activa
+                    if (viewId === 'main' && !ad.showOnMain) return false;
+                    if (viewId === 'cards' && !ad.showOnCards) return false;
+                    if (viewId === 'play' && !ad.showOnPlay) return false;
+                    if (viewId === 'config' && !ad.showOnMain) return false; // Mostramos los de main en config por consistencia
+
+                    // Validar programación horaria
+                    if (ad.startDate && now < new Date(ad.startDate)) return false;
+                    if (ad.endDate && now > new Date(ad.endDate)) return false;
+
+                    return true;
+                });
+
+                if (this.matchingAds.length === 0) {
+                    adBannerContainer.classList.add('hidden');
+                    document.querySelector('.app-main').classList.remove('has-ad');
+                    return;
+                }
+
+                // Iniciar visualización
+                this.currentAdIndex = 0;
+                this.displayAd(this.matchingAds[0]);
+
+                if (this.matchingAds.length > 1) {
+                    // Rotar cada 10 segundos
+                    this.rotationInterval = setInterval(() => {
+                        this.currentAdIndex = (this.currentAdIndex + 1) % this.matchingAds.length;
+                        this.displayAd(this.matchingAds[this.currentAdIndex]);
+                    }, 10000);
+                }
+            } catch (err) {
+                console.error("Error al cargar publicidad para el banner:", err);
+            }
+        }
+
+        displayAd(ad) {
+            if (this.isDismissedForView) return;
+
+            // Suave transición fade-out
+            adBannerImage.style.opacity = '0';
+            
+            setTimeout(() => {
+                adBannerImage.src = ad.imageUrl;
+                adBannerImage.alt = ad.title;
+                
+                if (ad.linkUrl) {
+                    adBannerLink.href = ad.linkUrl;
+                    adBannerLink.style.pointerEvents = 'auto';
+                } else {
+                    adBannerLink.removeAttribute('href');
+                    adBannerLink.style.pointerEvents = 'none';
+                }
+
+                // Fade-in
+                adBannerImage.style.opacity = '1';
+
+                // Mostrar el contenedor
+                adBannerContainer.classList.remove('hidden');
+                document.querySelector('.app-main').classList.add('has-ad');
+            }, 250);
+        }
+    }
+
+    // Instanciar el gestor globalmente
+    window.bannerManager = new BannerManager();
+    // Forzar actualización inicial
+    setTimeout(() => {
+        window.bannerManager.updateBannerForView('main');
+    }, 1000);
 });
