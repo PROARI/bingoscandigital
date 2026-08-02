@@ -232,6 +232,47 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById('btn-global-config').addEventListener('click', () => showView('config'));
 
+    // Botón de Compartir Global
+    const globalShareBtn = document.getElementById('btn-global-share');
+    if (globalShareBtn) {
+        globalShareBtn.addEventListener('click', async () => {
+            if (window.audioService) {
+                window.audioService.playTap();
+            }
+            
+            const shareData = {
+                title: 'Bingo Scan Digital',
+                text: '¡Digitaliza tus cartones de Bingo físicos con tu cámara y juega de forma inteligente!',
+                url: window.location.href
+            };
+
+            if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+                try {
+                    await navigator.share(shareData);
+                    showToast("¡Gracias por compartir!", "success");
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.error('Error al compartir:', err);
+                        fallbackShare();
+                    }
+                }
+            } else {
+                fallbackShare();
+            }
+
+            function fallbackShare() {
+                navigator.clipboard.writeText(window.location.href)
+                    .then(() => {
+                        showToast("Enlace de la aplicación copiado al portapapeles.", "success");
+                    })
+                    .catch(err => {
+                        console.error('Error al copiar enlace:', err);
+                        showToast("No se pudo copiar el enlace.", "danger");
+                    });
+            }
+        });
+    }
+
     // Modal para agregar cartón
     document.getElementById('modal-btn-close').addEventListener('click', () => {
         addCardModal.classList.add('hidden');

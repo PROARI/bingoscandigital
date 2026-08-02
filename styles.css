@@ -78,6 +78,12 @@ body {
     z-index: 100;
 }
 
+.header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
 .header-logo {
     display: flex;
     align-items: center;
