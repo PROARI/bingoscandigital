@@ -1577,7 +1577,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         id: "default_fallback_anuncio_gif",
                         title: "Publicidad",
                         imageUrl: "anuncio.gif",
-                        linkUrl: "",
+                        linkUrl: "https://api.whatsapp.com/send/?phone=59174758244&text=deseo+ganar+dinero+con+bitradex+y+quiero+formar+parte+de+su+grupo&type=phone_number&app_absent=0",
                         isActive: true,
                         showOnMain: true,
                         showOnCards: true,
