@@ -1035,7 +1035,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 'Content-Type': 'application/json',
                 'X-Admin-Password': password || "4206371Luis*"
             },
-            body: JSON.stringify({ action, adData, adId })
+            body: JSON.stringify({ 
+                action, 
+                adData, 
+                adId, 
+                password: password || "4206371Luis*" 
+            })
         });
         
         let result;
@@ -1233,9 +1238,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 resetAdForm();
                 await renderAdminAdsScreen();
                 await bannerManager.refresh();
-            } catch (err) {
+             } catch (err) {
                 console.error(err);
-                showToast('Error al guardar el anuncio.', 'danger');
+                showToast('Error al guardar: ' + err.message, 'danger');
             }
         });
     }
@@ -1322,10 +1327,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const checked = e.target.checked;
                     const ad = allAds.find(a => a.id === adId);
                     if (ad) {
+                        const previousState = ad.isActive;
                         ad.isActive = checked;
-                        await sendAdActionToServer('save', ad);
-                        showToast(checked ? 'Anuncio activado.' : 'Anuncio desactivado.');
-                        await bannerManager.refresh();
+                        try {
+                            await sendAdActionToServer('save', ad);
+                            showToast(checked ? 'Anuncio activado.' : 'Anuncio desactivado.');
+                            await bannerManager.refresh();
+                        } catch (err) {
+                            console.error(err);
+                            e.target.checked = previousState;
+                            ad.isActive = previousState;
+                            showToast('Error al activar/desactivar: ' + err.message, 'danger');
+                        }
                     }
                 });
 
@@ -1354,10 +1367,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // Delete click
                 item.querySelector('.btn-delete-ad').addEventListener('click', async () => {
                     if (confirm(`¿Estás seguro de eliminar el anuncio "${ad.title}"?`)) {
-                        await sendAdActionToServer('delete', null, ad.id);
-                        showToast('Anuncio eliminado.');
-                        await renderAdminAdsScreen();
-                        await bannerManager.refresh();
+                        try {
+                            await sendAdActionToServer('delete', null, ad.id);
+                            showToast('Anuncio eliminado.');
+                            await renderAdminAdsScreen();
+                            await bannerManager.refresh();
+                        } catch (err) {
+                            console.error(err);
+                            showToast('Error al eliminar: ' + err.message, 'danger');
+                        }
                     }
                 });
 
