@@ -38,6 +38,11 @@ self.addEventListener('activate', (e) => {
 
 // Fetch Event - Network First with Cache Fallback (Ideal for PWA updates)
 self.addEventListener('fetch', (e) => {
+  // Ignorar peticiones a la API de anuncios y su JSON para evitar almacenar banners obsoletos en la caché
+  if (e.request.url.includes('ads.php') || e.request.url.includes('ads.json')) {
+    return;
+  }
+
   // Solo interceptar peticiones del mismo origen o CDNs de JS
   if (e.request.url.startsWith(self.location.origin) || e.request.url.includes('cdn.jsdelivr.net')) {
     e.respondWith(

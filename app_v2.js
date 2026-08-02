@@ -1086,6 +1086,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     function submitAdminPassword() {
         const password = adminPasswordInput.value;
         if (password === "4206371Luis*") {
+            sessionStorage.setItem('adminPassword', password);
             adminAuthModal.classList.add('hidden');
             adminAuthError.classList.add('hidden');
             showView('adminAds');
@@ -1369,6 +1370,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const url = adSyncUrlInput.value.trim();
         if (!enabled || !url) {
             showToast('Por favor activa la sincronización remota e ingresa una URL válida.', 'warning');
+            return;
+        }
+
+        // Evitar sincronización automática al inicio si no se tiene la contraseña cargada
+        if (!sessionStorage.getItem('adminPassword')) {
+            console.warn("Sincronización automática de anuncios omitida por falta de credenciales de administrador.");
             return;
         }
 
