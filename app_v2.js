@@ -1572,9 +1572,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 });
 
                 if (this.matchingAds.length === 0) {
-                    adBannerContainer.classList.add('hidden');
-                    document.querySelector('.app-main').classList.remove('has-ad');
-                    return;
+                    // Fallback a anuncio.gif local si no hay anuncios activos en el sistema
+                    this.matchingAds = [{
+                        id: "default_fallback_anuncio_gif",
+                        title: "Publicidad",
+                        imageUrl: "anuncio.gif",
+                        linkUrl: "",
+                        isActive: true,
+                        showOnMain: true,
+                        showOnCards: true,
+                        showOnPlay: true
+                    }];
                 }
 
                 // Iniciar visualización
