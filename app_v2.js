@@ -232,33 +232,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     document.getElementById('btn-global-config').addEventListener('click', () => showView('config'));
 
-    // Botón de compartir enlace principal
-    document.getElementById('btn-global-share').addEventListener('click', async () => {
-        const shareUrl = window.location.origin + window.location.pathname;
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: 'Bingo Scan Digital',
-                    text: '¡Digitaliza tus cartones de Bingo físicos y juega de forma inteligente!',
-                    url: shareUrl
-                });
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Error al compartir:', error);
-                    showToast("No se pudo compartir el enlace.", "danger");
-                }
-            }
-        } else {
-            try {
-                await navigator.clipboard.writeText(shareUrl);
-                showToast("Enlace de la app copiado al portapapeles.", "success");
-            } catch (err) {
-                console.error('Error al copiar:', err);
-                showToast("No se pudo copiar el enlace.", "danger");
-            }
-        }
-    });
-
     // Modal para agregar cartón
     document.getElementById('modal-btn-close').addEventListener('click', () => {
         addCardModal.classList.add('hidden');
@@ -1027,6 +1000,57 @@ document.addEventListener("DOMContentLoaded", async () => {
     let activeAds = [];
     let uploadedAdImageBase64 = "";
 
+    const ADS_API_URL = 'ads_api.php';
+
+    async function fetchAdsFromServer() {
+        const t = Date.now();
+        try {
+            const response = await fetch(`${ADS_API_URL}?t=${t}`);
+            if (!response.ok) throw new Error('Error al obtener anuncios del servidor');
+            const ads = await response.json();
+            // Guardar copia local para offline fallback
+            try {
+                const localAds = await window.dbService.getAllAds();
+                for (const la of localAds) {
+                    await window.dbService.deleteAd(la.id);
+                }
+                for (const ad of ads) {
+                    await window.dbService.saveAd(ad);
+                }
+            } catch (e) {
+                console.warn("No se pudo actualizar el fallback local de anuncios:", e);
+            }
+            return ads;
+        } catch (err) {
+            console.warn("Fallo al conectar con el servidor de anuncios, usando base de datos local:", err);
+            return await window.dbService.getAllAds();
+        }
+    }
+
+    async function sendAdActionToServer(action, adData = null, adId = null) {
+        const password = adminPasswordInput ? adminPasswordInput.value : "";
+        const response = await fetch(ADS_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Password': password || "4206371Luis*"
+            },
+            body: JSON.stringify({ action, adData, adId })
+        });
+        
+        let result;
+        try {
+            result = await response.json();
+        } catch (e) {
+            throw new Error('Respuesta inválida del servidor');
+        }
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Error al procesar solicitud en el servidor');
+        }
+        return result;
+    }
+
     // Elementos del DOM para administración
     const adminAuthModal = document.getElementById('admin-auth-modal');
     const adminPasswordInput = document.getElementById('admin-password-input');
@@ -1086,7 +1110,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     function submitAdminPassword() {
         const password = adminPasswordInput.value;
         if (password === "4206371Luis*") {
-            sessionStorage.setItem('adminPassword', password);
             adminAuthModal.classList.add('hidden');
             adminAuthError.classList.add('hidden');
             showView('adminAds');
@@ -1187,7 +1210,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             let existingAd = null;
             if (adEditIdInput.value) {
                 // Si editamos y no cargamos nueva imagen, mantenemos la anterior
-                const allAds = await window.dbService.getAllAds();
+                const allAds = await fetchAdsFromServer();
                 existingAd = allAds.find(a => a.id === adEditIdInput.value);
             }
 
@@ -1205,7 +1228,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             };
 
             try {
-                await window.dbService.saveAd(adData);
+                await sendAdActionToServer('save', adData);
                 showToast(adEditIdInput.value ? 'Anuncio actualizado con éxito.' : 'Anuncio guardado con éxito.');
                 resetAdForm();
                 await renderAdminAdsScreen();
@@ -1247,7 +1270,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function renderAdminAdsScreen() {
         if (!adminAdsList) return;
         try {
-            const allAds = await window.dbService.getAllAds();
+            const allAds = await fetchAdsFromServer();
             adminAdsList.innerHTML = "";
 
             if (allAds.length === 0) {
@@ -1300,7 +1323,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     const ad = allAds.find(a => a.id === adId);
                     if (ad) {
                         ad.isActive = checked;
-                        await window.dbService.saveAd(ad);
+                        await sendAdActionToServer('save', ad);
                         showToast(checked ? 'Anuncio activado.' : 'Anuncio desactivado.');
                         await bannerManager.refresh();
                     }
@@ -1331,7 +1354,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // Delete click
                 item.querySelector('.btn-delete-ad').addEventListener('click', async () => {
                     if (confirm(`¿Estás seguro de eliminar el anuncio "${ad.title}"?`)) {
-                        await window.dbService.deleteAd(ad.id);
+                        await sendAdActionToServer('delete', null, ad.id);
                         showToast('Anuncio eliminado.');
                         await renderAdminAdsScreen();
                         await bannerManager.refresh();
@@ -1373,12 +1396,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
-        // Evitar sincronización automática al inicio si no se tiene la contraseña cargada
-        if (!sessionStorage.getItem('adminPassword')) {
-            console.warn("Sincronización automática de anuncios omitida por falta de credenciales de administrador.");
-            return;
-        }
-
         btnAdSyncNow.disabled = true;
         btnAdSyncNow.querySelector('span').textContent = 'Sincronizando...';
 
@@ -1393,7 +1410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 throw new Error('El formato JSON no es válido.');
             }
 
-            // Guardar anuncios remotos en la IndexedDB local
+            // Guardar anuncios remotos en el servidor de hosting
             for (const remoteAd of adsToImport) {
                 if (remoteAd.id && remoteAd.title && remoteAd.imageUrl) {
                     // Completar campos faltantes por seguridad
@@ -1409,7 +1426,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         showOnPlay: remoteAd.showOnPlay !== undefined ? remoteAd.showOnPlay : true,
                         isActive: remoteAd.isActive !== undefined ? remoteAd.isActive : true
                     };
-                    await window.dbService.saveAd(adObj);
+                    await sendAdActionToServer('save', adObj);
                 }
             }
 
@@ -1428,7 +1445,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (btnAdExport) {
         btnAdExport.addEventListener('click', async () => {
             try {
-                const allAds = await window.dbService.getAllAds();
+                const allAds = await fetchAdsFromServer();
                 exportJsonTextarea.value = JSON.stringify(allAds, null, 2);
                 exportJsonContainer.classList.remove('hidden');
                 exportJsonTextarea.scrollIntoView({ behavior: 'smooth' });
@@ -1456,8 +1473,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         const syncUrl = await window.dbService.getSetting('adSyncUrl', '');
         adSyncUrlInput.value = syncUrl;
 
-        // Si la sincronización está activa y hay una URL, intentar sincronizar al iniciar
-        if (syncEnabled && syncUrl) {
+        // Si la sincronización está activa y hay una URL, intentar sincronizar al iniciar (solo si el admin está autenticado)
+        if (syncEnabled && syncUrl && adminPasswordInput && adminPasswordInput.value) {
             setTimeout(() => {
                 syncAdsFromServer().catch(err => console.warn("Sincronización inicial falló:", err));
             }, 2000);
@@ -1516,7 +1533,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
 
             try {
-                const allAds = await window.dbService.getAllAds();
+                const allAds = await fetchAdsFromServer();
                 const now = new Date();
 
                 // Filtrar anuncios activos y programados

@@ -148,114 +148,45 @@ class BingoDB {
     /* --- OPERACIONES DE ANUNCIOS --- */
 
     /**
-     * Guarda un anuncio nuevo o actualiza uno existente en el hosting y actualiza caché local.
+     * Guarda un anuncio nuevo o actualiza uno existente.
      * @param {Object} ad Objeto del anuncio
      */
     saveAd(ad) {
-        return new Promise(async (resolve, reject) => {
-            const adminPassword = sessionStorage.getItem('adminPassword') || '';
-            try {
-                const response = await fetch('./ads.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Admin-Password': adminPassword
-                    },
-                    body: JSON.stringify({
-                        action: 'save',
-                        ad: ad
-                    })
-                });
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['ads'], 'readwrite');
+            const store = transaction.objectStore('ads');
+            const request = store.put(ad);
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Error del servidor: ${response.status}`);
-                }
-
-                // Guardar también en la caché local IndexedDB
-                const transaction = this.db.transaction(['ads'], 'readwrite');
-                const store = transaction.objectStore('ads');
-                const request = store.put(ad);
-                request.onsuccess = () => resolve(ad);
-                request.onerror = () => reject("Guardado en hosting, pero falló la caché local.");
-            } catch (err) {
-                console.error("Error al guardar anuncio en hosting:", err);
-                reject(err.message || err);
-            }
+            request.onsuccess = () => resolve(ad);
+            request.onerror = () => reject("Error al guardar el anuncio.");
         });
     }
 
     /**
-     * Recupera todos los anuncios desde el hosting, sincroniza caché local y retorna.
-     * Con fallback a IndexedDB si se encuentra sin conexión.
+     * Recupera todos los anuncios guardados.
      */
     getAllAds() {
-        return new Promise(async (resolve, reject) => {
-            try {
-                // Forzar consulta a la red agregando timestamp
-                const response = await fetch(`./ads.php?t=${Date.now()}`);
-                if (!response.ok) throw new Error("HTTP " + response.status);
-                const ads = await response.json();
-                if (Array.isArray(ads)) {
-                    // Sincronizar en caché local de IndexedDB
-                    const transaction = this.db.transaction(['ads'], 'readwrite');
-                    const store = transaction.objectStore('ads');
-                    store.clear();
-                    ads.forEach(ad => store.put(ad));
-                    resolve(ads);
-                    return;
-                }
-            } catch (err) {
-                console.warn("No se pudo obtener anuncios desde el hosting, usando caché local:", err);
-            }
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['ads'], 'readonly');
+            const store = transaction.objectStore('ads');
+            const request = store.getAll();
 
-            // Fallback a IndexedDB local
-            try {
-                const transaction = this.db.transaction(['ads'], 'readonly');
-                const store = transaction.objectStore('ads');
-                const request = store.getAll();
-                request.onsuccess = () => resolve(request.result || []);
-                request.onerror = () => reject("Error al recuperar anuncios de caché local.");
-            } catch (errDb) {
-                reject("Fallo general de base de datos local: " + errDb);
-            }
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject("Error al recuperar los anuncios.");
         });
     }
 
     /**
-     * Elimina un anuncio por su ID del hosting y actualiza la caché local.
+     * Elimina un anuncio por su ID.
      */
     deleteAd(id) {
-        return new Promise(async (resolve, reject) => {
-            const adminPassword = sessionStorage.getItem('adminPassword') || '';
-            try {
-                const response = await fetch('./ads.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Admin-Password': adminPassword
-                    },
-                    body: JSON.stringify({
-                        action: 'delete',
-                        id: id
-                    })
-                });
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction(['ads'], 'readwrite');
+            const store = transaction.objectStore('ads');
+            const request = store.delete(id);
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || `Error del servidor: ${response.status}`);
-                }
-
-                // Eliminar de la caché local de IndexedDB
-                const transaction = this.db.transaction(['ads'], 'readwrite');
-                const store = transaction.objectStore('ads');
-                const request = store.delete(id);
-                request.onsuccess = () => resolve(true);
-                request.onerror = () => reject("Eliminado de hosting, pero falló la caché local.");
-            } catch (err) {
-                console.error("Error al eliminar anuncio del hosting:", err);
-                reject(err.message || err);
-            }
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(`Error al eliminar el anuncio con ID ${id}.`);
         });
     }
 }
